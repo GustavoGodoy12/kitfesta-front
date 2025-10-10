@@ -9,9 +9,11 @@ import {
 import { SaborList } from './Doces.styled'
 import KitCard from '../../components/KitCard/KitCard'
 import KitInfoModal from '../../components/KitCard/KitInfoModal'
+import { todayLocalISO } from '../../utils/date'
+
 
 export default function Doces() {
-  const [filterDate, setFilterDate] = useState<string>('')
+  const [filterDate, setFilterDate] = useState<string>(() => todayLocalISO());
   const [orderAsc, setOrderAsc] = useState<boolean>(true)
   const [refresh, setRefresh] = useState(0)
 
@@ -59,7 +61,9 @@ export default function Doces() {
         <RightGroup>
           <DateInput type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
           <Button onClick={() => setOrderAsc(v => !v)}>Ordenar por hora {orderAsc ? '↑' : '↓'}</Button>
-          <Button onClick={() => { setFilterDate(''); setOrderAsc(true) }}>Limpar filtros</Button>
+          <Button onClick={() => { setFilterDate(todayLocalISO()); setOrderAsc(true) }}>
+  Limpar filtros
+</Button>
         </RightGroup>
       </TopBar>
 

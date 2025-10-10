@@ -8,6 +8,7 @@ import {
   DangerButton,
   Muted,
   UndoCorner,
+  DoneRibbon,
 } from './KitCard.styled'
 
 type Props = {
@@ -47,10 +48,13 @@ export default function KitCard({
       $done={done}
       role="button"
       tabIndex={0}
-      onClick={() => onClick?.(kit)}                  // <- qualquer clique no card abre
+      onClick={() => onClick?.(kit)}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick?.(kit) }}
       aria-label={`Abrir detalhes do kit ${kit.nome}`}
     >
+      {/* Selo FEITO (fixo no canto inferior esquerdo) */}
+      {done && <DoneRibbon>FEITO</DoneRibbon>}
+
       {/* Seta de desfazer (só aparece quando done=true e showUndo=true) */}
       {done && showUndo && onToggleDone && (
         <UndoCorner
@@ -81,10 +85,8 @@ export default function KitCard({
       {/* Área do meio customizável */}
       {middle}
 
-      {/* Rodapé — ATENÇÃO: o click do container agora NÃO para propagação.
-          Somente os botões param propagação para não abrir o modal por engano. */}
+      {/* Rodapé */}
       <CardActions>
-        {/* Botão remover (se existir) */}
         {onRemove && (
           <DangerButton
             onClick={(e) => { e.stopPropagation(); onRemove(kit) }}
@@ -93,9 +95,6 @@ export default function KitCard({
             Remover
           </DangerButton>
         )}
-
-        {/* Conteúdo passado pela página (ex.: “Visualizar KIT inteiro”, “Feito”) */}
-        {/* Dica: nos botões que você envia pelo `footer`, continue usando e.stopPropagation() */}
         {footer}
       </CardActions>
     </CardKit>
