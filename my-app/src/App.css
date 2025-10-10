@@ -1,0 +1,35 @@
+/* A área de conteúdo reserva espaço da sidebar fixa e aplica padding nas laterais */
+.shell {
+  margin-left: var(--sidebar-w);
+  min-height: 100vh;
+  transition: margin-left .2s ease;
+}
+
+/* Quando a sidebar estiver colapsada (classe aplicada no <body>) */
+body.sidebar-collapsed .shell {
+  margin-left: var(--sidebar-w-sm);
+}
+
+/* Em telas menores você ainda pode manter o compacto por padrão */
+@media (max-width: 860px) {
+  .shell { margin-left: var(--sidebar-w-sm); }
+}
+
+.content {
+  padding: var(--page-pad-y) var(--page-pad-x);
+}
+
+/* Componentes de exemplo */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.h1 {
+  font-size: clamp(24px, 4vw, 36px);
+  line-height: 1.2;
+  margin: 0 0 16px;
+}
+.subtitle { color: var(--muted); margin-bottom: 20px; }
