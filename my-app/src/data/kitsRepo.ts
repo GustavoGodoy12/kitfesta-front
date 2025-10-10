@@ -104,6 +104,7 @@ function toFrontKit(s: SrvKit): Kit {
     atualizadoEm: s.atualizadoEm,
   } as unknown as Kit
 
+  // expõe "entregue" no Kit do front (caso não exista no tipo)
   ;(base as any).entregue = !!s.entregue
   return base
 }
@@ -208,9 +209,24 @@ export async function setDone(kitId: IdNum, kind: 'doces' | 'salgados' | 'bolos'
   })
 }
 
+// ✅ considera “feito” apenas as seções que existem (não vazias)
 export function isAllDone(kit: Kit): boolean {
   const s = kit.status || { docesDone: false, salgadosDone: false, bolosDone: false }
-  return !!(s.docesDone && s.salgadosDone && s.bolosDone)
+
+  const hasDoces = (kit.doces?.length ?? 0) > 0
+  const hasSalg  = (kit.salgados?.length ?? 0) > 0
+  const hasBolos = (kit.bolos?.length ?? 0) > 0
+
+  // força booleanos
+  const docesDone    = Boolean(s.docesDone)
+  const salgadosDone = Boolean(s.salgadosDone)
+  const bolosDone    = Boolean(s.bolosDone)
+
+  const docesOk    = !hasDoces || docesDone
+  const salgadosOk = !hasSalg  || salgadosDone
+  const bolosOk    = !hasBolos || bolosDone
+
+  return docesOk && salgadosOk && bolosOk
 }
 
 export async function setEntregue(kitId: IdNum, value: boolean) {
