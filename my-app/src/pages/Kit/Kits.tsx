@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   createKit,
   deleteKit,
-  listNaoEntregues,   // 🔽 usa apenas não-entregues
+  listNaoEntregues,   // carrega só não-entregues
   addDoce,
   addSalgado,
   addBolo,
@@ -41,16 +41,17 @@ import {
 import KitCard from '../../components/KitCard/KitCard'
 import KitInfoModal from '../../components/KitCard/KitInfoModal'
 import KitItemsEditor from '../../components/KitCard/KitItemsEditor/KitItemsEditor'
+import { useSabores } from '../../hooks/useSabores'
 
-const DOCES = ['Brigadeiro', 'Beijinho', 'Cajuzinho', 'Olho de Sogra', 'Casadinho']
-const SALGADOS = ['Coxinha', 'Kibe', 'Empada', 'Quibe Assado', 'Enroladinho']
-const BOLOS = ['Chocolate', 'Floresta Negra', 'Ninho com Morango', 'Red Velvet', 'Prestígio']
-
+// rascunho de itens iniciais (somente criação)
 type NewItem = { sabor: string; quantidade: number }
 type NewBolo = NewItem & { texto?: string }
 
 export default function Kits() {
   const navigate = useNavigate()
+
+  // sabores dinâmicos (com fallback interno no hook)
+  const { doces: DOCES, salgados: SALGADOS, bolos: BOLOS } = useSabores()
 
   // filtros/estado
   const [refresh, setRefresh] = useState(0)
@@ -81,18 +82,26 @@ export default function Kits() {
   const [endereco, setEndereco] = useState('')
 
   // itens iniciais (criação)
-  const [doceSel, setDoceSel] = useState(DOCES[0])
+  const [doceSel, setDoceSel] = useState<string>('')   // será preenchido quando DOCES carregar
   const [doceQtd, setDoceQtd] = useState(10)
   const [doces, setDoces] = useState<NewItem[]>([])
 
-  const [salgadoSel, setSalgadoSel] = useState(SALGADOS[0])
+  const [salgadoSel, setSalgadoSel] = useState<string>('') // idem
   const [salgadoQtd, setSalgadoQtd] = useState(10)
   const [salgados, setSalgados] = useState<NewItem[]>([])
 
-  const [boloSel, setBoloSel] = useState(BOLOS[0])
+  const [boloSel, setBoloSel] = useState<string>('') // idem
   const [boloQtd, setBoloQtd] = useState(1)
   const [boloTexto, setBoloTexto] = useState('')
   const [bolos, setBolos] = useState<NewBolo[]>([])
+
+  // garante que selects tenham um valor default quando sabores carregarem
+  useEffect(() => {
+    if (!doceSel && DOCES.length) setDoceSel(DOCES[0])
+    if (!salgadoSel && SALGADOS.length) setSalgadoSel(SALGADOS[0])
+    if (!boloSel && BOLOS.length) setBoloSel(BOLOS[0])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [DOCES, SALGADOS, BOLOS])
 
   // dados (somente NÃO entregues)
   const [kitsRaw, setKitsRaw] = useState<Kit[]>([])
@@ -132,9 +141,9 @@ export default function Kits() {
     setNome(''); setTelefone(''); setEmail(''); setDia(''); setHora('')
     setTipo('retirada'); setEndereco('')
     setDoces([]); setSalgados([]); setBolos([])
-    setDoceSel(DOCES[0]); setDoceQtd(10)
-    setSalgadoSel(SALGADOS[0]); setSalgadoQtd(10)
-    setBoloSel(BOLOS[0]); setBoloQtd(1); setBoloTexto('')
+    setDoceSel(DOCES[0] || ''); setDoceQtd(10)
+    setSalgadoSel(SALGADOS[0] || ''); setSalgadoQtd(10)
+    setBoloSel(BOLOS[0] || ''); setBoloQtd(1); setBoloTexto('')
     setErrorMsg(''); setSaving(false)
   }
 
@@ -328,6 +337,7 @@ export default function Kits() {
                 </Field>
               )}
 
+              {/* Itens iniciais — só na criação */}
               {!editingKitId && (
                 <>
                   <Divider />
@@ -351,6 +361,7 @@ export default function Kits() {
                       <Button
                         type="button"
                         onClick={() => {
+                          if (!doceSel) return
                           setDoces(prev => [...prev, { sabor: doceSel, quantidade: doceQtd }])
                           setDoceQtd(0)
                         }}
@@ -389,6 +400,7 @@ export default function Kits() {
                       <Button
                         type="button"
                         onClick={() => {
+                          if (!salgadoSel) return
                           setSalgados(prev => [...prev, { sabor: salgadoSel, quantidade: salgadoQtd }])
                         }}
                       >

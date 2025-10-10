@@ -23,6 +23,7 @@ import {
   BadgeList,
 } from '../../../pages/Kit/Kits.styled'
 import { CardActions, Muted } from '../KitCard.styled'
+import { useSabores } from '../../../hooks/useSabores'
 
 type Props = {
   open: boolean
@@ -31,26 +32,33 @@ type Props = {
   onChanged?: () => void // para dar refresh na tela de kits ao salvar
 }
 
-const DOCES = ['Brigadeiro', 'Beijinho', 'Cajuzinho', 'Olho de Sogra', 'Casadinho']
-const SALGADOS = ['Coxinha', 'Kibe', 'Empada', 'Quibe Assado', 'Enroladinho']
-const BOLOS = ['Chocolate', 'Floresta Negra', 'Ninho com Morango', 'Red Velvet', 'Prestígio']
-
 // Tipos de rascunho (id opcional para novos itens)
 type DraftDoce = Omit<Doce, 'id'> & { id?: IdNum }
 type DraftSalgado = Omit<Salgado, 'id'> & { id?: IdNum }
 type DraftBolo = Omit<Bolo, 'id'> & { id?: IdNum }
 
 export default function KitItemsEditor({ open, kit, onClose, onChanged }: Props) {
+  // sabores vindos da API (com fallback interno)
+  const { doces: DOCES, salgados: SALGADOS, bolos: BOLOS, loading: loadingSabores } = useSabores()
+
   // selects para “adicionar”
-  const [doceSel, setDoceSel] = useState(DOCES[0])
+  const [doceSel, setDoceSel] = useState('')
   const [doceQtd, setDoceQtd] = useState(10)
 
-  const [salgadoSel, setSalgadoSel] = useState(SALGADOS[0])
+  const [salgadoSel, setSalgadoSel] = useState('')
   const [salgadoQtd, setSalgadoQtd] = useState(10)
 
-  const [boloSel, setBoloSel] = useState(BOLOS[0])
+  const [boloSel, setBoloSel] = useState('')
   const [boloQtd, setBoloQtd] = useState(1)
   const [boloTexto, setBoloTexto] = useState('')
+
+  // quando sabores carregarem, garantir um valor default
+  useEffect(() => {
+    if (!doceSel && DOCES.length) setDoceSel(DOCES[0])
+    if (!salgadoSel && SALGADOS.length) setSalgadoSel(SALGADOS[0])
+    if (!boloSel && BOLOS.length) setBoloSel(BOLOS[0])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [DOCES, SALGADOS, BOLOS])
 
   // estado do kit carregado do backend (snapshot original)
   const [originalKit, setOriginalKit] = useState<Kit | null>(null)
@@ -269,7 +277,7 @@ export default function KitItemsEditor({ open, kit, onClose, onChanged }: Props)
         <ModalGrid>
           <Field>
             <Label>Doce (sabor)</Label>
-            <Select value={doceSel} onChange={e => setDoceSel(e.target.value)}>
+            <Select value={doceSel} onChange={e => setDoceSel(e.target.value)} disabled={loadingSabores}>
               {DOCES.map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </Select>
           </Field>
@@ -326,7 +334,7 @@ export default function KitItemsEditor({ open, kit, onClose, onChanged }: Props)
         <ModalGrid>
           <Field>
             <Label>Salgado (sabor)</Label>
-            <Select value={salgadoSel} onChange={e => setSalgadoSel(e.target.value)}>
+            <Select value={salgadoSel} onChange={e => setSalgadoSel(e.target.value)} disabled={loadingSabores}>
               {SALGADOS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </Select>
           </Field>
@@ -339,7 +347,7 @@ export default function KitItemsEditor({ open, kit, onClose, onChanged }: Props)
           </Field>
           <CardActions>
             <Button
-              disabled={!canEdit}
+              disabled ={!canEdit}
               onClick={() => {
                 setDraftSalgados(prev => [...prev, { kitId: originalKit.id, sabor: salgadoSel, quantidade: salgadoQtd }])
               }}
@@ -382,7 +390,7 @@ export default function KitItemsEditor({ open, kit, onClose, onChanged }: Props)
         <ModalGrid>
           <Field>
             <Label>Bolo (sabor)</Label>
-            <Select value={boloSel} onChange={e => setBoloSel(e.target.value)}>
+            <Select value={boloSel} onChange={e => setBoloSel(e.target.value)} disabled={loadingSabores}>
               {BOLOS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </Select>
           </Field>
