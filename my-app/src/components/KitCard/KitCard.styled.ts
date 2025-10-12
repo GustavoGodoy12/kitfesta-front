@@ -1,9 +1,8 @@
-// KitCard.styled.ts
+// src/components/KitCard/KitCard.styled.ts
 import styled from 'styled-components'
 
 export const CardKit = styled.article<{ $done?: boolean }>`
   position: relative;
-  overflow: visible; /* deixa a ribbon sair do card */
 
   background: ${({ $done }) => ($done ? '#c6f6d5' : 'var(--card-bg, #f3f4f6)')};
   border: 1px solid ${({ $done }) => ($done ? '#059669' : 'var(--border)')};
@@ -28,6 +27,22 @@ export const CardKit = styled.article<{ $done?: boolean }>`
   &:focus-visible { outline: 3px solid var(--orange); }
 `
 
+/* Badge pequeno acima do título, alinhado à esquerda */
+export const DoneBadgeTop = styled.div`
+  align-self: flex-start;
+  margin-top: -4px;    /* aproxima do topo do card */
+  margin-bottom: 4px;  /* separa do nome */
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #10b981;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: .3px;
+  box-shadow: 0 6px 16px rgba(16,185,129,.18);
+  pointer-events: none; /* não intercepta cliques */
+`
+
 export const UndoCorner = styled.button`
   position: absolute;
   top: 10px;
@@ -45,55 +60,9 @@ export const UndoCorner = styled.button`
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  z-index: 3; /* acima da ribbon */
+  z-index: 5;
 
   &:hover { filter: brightness(0.98); }
-`
-
-/* Ribbon discreta no canto superior direito, fora da área do título */
-export const DoneRibbon = styled.div`
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 72px;   /* caixa pequena no canto */
-  height: 72px;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 2;
-
-  /* escondemos o texto do elemento e desenhamos a faixa com ::before */
-  color: transparent;
-  font-size: 0;
-
-  &::before {
-    content: 'FEITO';
-    position: absolute;
-    top: 14px;           /* centraliza dentro da caixa */
-    right: -24px;        /* puxa a tarja para fora */
-    width: 120px;
-    text-align: center;
-
-    transform: rotate(45deg);
-    background: #10b981;
-    color: #ffffff;
-    font-weight: 800;
-    font-size: 11px;
-    letter-spacing: .4px;
-    padding: 3px 0;
-    
-  }
-
-  /* pontinhas (acabamento sutil) */
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0; right: 0;
-    width: 0; height: 0;
-    border-top: 10px solid #0ea97a;
-    border-left: 10px solid transparent;
-    transform: translate(0, 0);
-    opacity: .9;
-  }
 `
 
 export const KitHeader = styled.div`
@@ -119,8 +88,7 @@ export const StatRow = styled.div`
 `
 
 export const CardActions = styled.div`
-  margin-top: auto; /* cola o rodapé no fim */
-
+  margin-top: auto;
   position: relative;
   display: flex;
   gap: 12px;
