@@ -42,6 +42,7 @@ import KitCard from '../../components/KitCard/KitCard'
 import KitInfoModal from '../../components/KitCard/KitInfoModal'
 import KitItemsEditor from '../../components/KitCard/KitItemsEditor/KitItemsEditor'
 import { useSabores } from '../../hooks/useSabores'
+import { todayLocalISO } from '../../utils/date'
 
 // rascunho de itens iniciais (somente criação)
 type NewItem = { sabor: string; quantidade: number }
@@ -55,7 +56,7 @@ export default function Kits() {
 
   // filtros/estado
   const [refresh, setRefresh] = useState(0)
-  const [filterDate, setFilterDate] = useState<string>('')
+  const [filterDate, setFilterDate] = useState<string>(() => todayLocalISO());
   const [orderAsc, setOrderAsc] = useState<boolean>(true)
 
   // modal criar/editar

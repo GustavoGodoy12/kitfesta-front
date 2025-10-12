@@ -1,3 +1,4 @@
+// KitCard.tsx
 import type { ReactNode } from 'react'
 import type { Kit } from '../../types/kit'
 import {
@@ -46,16 +47,22 @@ export default function KitCard({
   return (
     <CardKit
       $done={done}
+      className={done ? 'has-ribbon' : undefined}
       role="button"
       tabIndex={0}
       onClick={() => onClick?.(kit)}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick?.(kit) }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick?.(kit)
+        }
+      }}
       aria-label={`Abrir detalhes do kit ${kit.nome}`}
     >
-      {/* Selo FEITO (fixo no canto inferior esquerdo) */}
+      {/* Etiqueta FEITO (pequena no canto superior direito) */}
       {done && <DoneRibbon>FEITO</DoneRibbon>}
 
-      {/* Seta de desfazer (só aparece quando done=true e showUndo=true) */}
+      {/* Seta de desfazer (não sobrepõe o título) */}
       {done && showUndo && onToggleDone && (
         <UndoCorner
           title="Desfazer"
@@ -85,7 +92,7 @@ export default function KitCard({
       {/* Área do meio customizável */}
       {middle}
 
-      {/* Rodapé */}
+      {/* Rodapé — botões sempre embaixo */}
       <CardActions>
         {onRemove && (
           <DangerButton
