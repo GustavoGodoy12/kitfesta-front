@@ -10,18 +10,20 @@ import {
   Muted,
   UndoCorner,
   DoneBadgeTop,
+  OverdueBadgeTop,
 } from './KitCard.styled'
 
 type Props = {
   kit: Kit
   done?: boolean
-  showUndo?: boolean                 // mostra a seta ↩︎ no topo direito quando done = true
-  onToggleDone?: (kit: Kit) => void  // alterna feito/desfazer nas subpáginas
-  showStats?: boolean                // mostra totais (doces/salgados/bolos)
-  middle?: ReactNode                 // conteúdo do meio do card (listas, etc)
-  footer?: ReactNode                 // conteúdo do rodapé (ex: botões)
-  onClick?: (kit: Kit) => void       // abrir modal de informações (aba Kits)
-  onRemove?: (kit: Kit) => void      // remover kit (aba Kits)
+  overdue?: boolean
+  showUndo?: boolean
+  onToggleDone?: (kit: Kit) => void
+  showStats?: boolean
+  middle?: ReactNode
+  footer?: ReactNode
+  onClick?: (kit: Kit) => void
+  onRemove?: (kit: Kit) => void
 }
 
 function computeTotals(k: Kit) {
@@ -34,6 +36,7 @@ function computeTotals(k: Kit) {
 export default function KitCard({
   kit,
   done = false,
+  overdue = false,
   showUndo = false,
   onToggleDone,
   showStats = true,
@@ -47,6 +50,7 @@ export default function KitCard({
   return (
     <CardKit
       $done={done}
+      $overdue={!done && overdue}
       role="button"
       tabIndex={0}
       onClick={() => onClick?.(kit)}
@@ -58,10 +62,11 @@ export default function KitCard({
       }}
       aria-label={`Abrir detalhes do kit ${kit.nome}`}
     >
-      {/* Badge FEITO acima do nome */}
+      {/* Selos acima do nome */}
       {done && <DoneBadgeTop>FEITO</DoneBadgeTop>}
+      {!done && overdue && <OverdueBadgeTop>ATRASADO</OverdueBadgeTop>}
 
-      {/* Seta de desfazer no canto superior direito */}
+      {/* Botão de desfazer */}
       {done && showUndo && onToggleDone && (
         <UndoCorner
           title="Desfazer"
@@ -79,7 +84,6 @@ export default function KitCard({
         </small>
       </KitHeader>
 
-      {/* Estatísticas (opcional) */}
       {showStats && (
         <StatRow>
           <span>Doces: {totals.doces}</span>
@@ -88,10 +92,8 @@ export default function KitCard({
         </StatRow>
       )}
 
-      {/* Área do meio customizável */}
       {middle}
 
-      {/* Rodapé — botões alinhados embaixo à direita */}
       <CardActions>
         {onRemove && (
           <DangerButton
