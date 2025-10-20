@@ -47,6 +47,8 @@ type SrvKit = {
   hora: string | null
   tipo: TipoEntrega
   endereco: string | null
+  /** pode vir como string se DECIMAL vier sem decimalNumbers:true */
+  preco: number | string
   statusDoces: 0 | 1
   statusSalgados: 0 | 1
   statusBolos: 0 | 1
@@ -87,6 +89,11 @@ function toFrontKit(s: SrvKit): Kit {
     salgadosDone: !!s.statusSalgados,
     bolosDone: !!s.statusBolos,
   }
+
+  const precoNum =
+    typeof s.preco === 'number' ? s.preco :
+    s.preco != null ? Number(s.preco) : undefined
+
   const base = {
     id: s.id as IdNum,
     nome: s.nome,
@@ -96,6 +103,7 @@ function toFrontKit(s: SrvKit): Kit {
     hora: s.hora ?? undefined,
     tipo: s.tipo,
     endereco: s.endereco ?? undefined,
+    preco: precoNum, // <-- preço normalizado como number
     doces: (s.doces || []).map(toDoce),
     salgados: (s.salgados || []).map(toSalg),
     bolos: (s.bolos || []).map(toBolo),
@@ -130,6 +138,7 @@ export async function createKit(data: {
   tipo: TipoEntrega
   endereco?: string
   cliente?: string
+  preco: number                       // <-- OBRIGATÓRIO no create
 }): Promise<Kit> {
   const body = {
     nome: data.nome,
@@ -139,13 +148,14 @@ export async function createKit(data: {
     hora: data.hora || undefined,
     tipo: data.tipo,
     endereco: data.tipo === 'entrega' ? (data.endereco || '') : undefined,
+    preco: data.preco,                // <-- envia para o backend
   }
   const created = await http<SrvKit>('/kits', { method: 'POST', body: JSON.stringify(body) })
   return toFrontKit(created)
 }
 
 export async function saveKit(kit: Kit): Promise<void> {
-  const patch = {
+  const patch: any = {
     nome: kit.nome,
     telefone: kit.telefone,
     email: kit.email ?? null,
@@ -153,6 +163,10 @@ export async function saveKit(kit: Kit): Promise<void> {
     hora: kit.hora ?? null,
     tipo: kit.tipo,
     endereco: kit.endereco ?? null,
+  }
+  // envia preço se disponível (edição)
+  if (typeof (kit as any).preco === 'number' && Number.isFinite((kit as any).preco)) {
+    patch.preco = (kit as any).preco
   }
   await http(`/kits/${Number(kit.id)}`, { method: 'PATCH', body: JSON.stringify(patch) })
 }

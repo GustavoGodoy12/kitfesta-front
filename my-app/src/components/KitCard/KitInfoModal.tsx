@@ -1,4 +1,3 @@
-// src/components/KitCard/KitInfoModal.tsx
 import { useEffect, useState } from 'react'
 import type { Kit } from '../../types/kit'
 import {
@@ -22,6 +21,11 @@ type Props = {
   /** Exibe o botão "Marcar como entregue" (default: true). Nas abas Doces/Salgados/Bolos, passe false. */
   showEntregueToggle?: boolean
 }
+
+const fmtBRL = (v: number | undefined) =>
+  typeof v === 'number' && Number.isFinite(v)
+    ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
+    : '—'
 
 export default function KitInfoModal({
   open,
@@ -61,6 +65,7 @@ export default function KitInfoModal({
           <div><Label>Email</Label><div>{kit.email || <Muted>—</Muted>}</div></div>
           <div><Label>Dia</Label><div>{kit.dataEvento || <Muted>—</Muted>}</div></div>
           <div><Label>Hora</Label><div>{kit.hora || <Muted>—</Muted>}</div></div>
+          <div><Label>Preço</Label><div>{fmtBRL(kit.preco)}</div></div>
           {kit.tipo === 'entrega' && (
             <div style={{ gridColumn: '1 / -1' }}>
               <Label>Endereço</Label>

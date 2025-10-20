@@ -2,12 +2,6 @@ import { useEffect, useState } from 'react'
 import { Brand, ItemIcon, LogoImg, Nav, NavItem, Toggle, Wrapper } from './Sidebar.styled'
 import logo from '../../assets/logo.png'
 
-/**
- * Sidebar fixa à esquerda — Janine's
- * - Toggle sem texto "expandir": apenas o chevron (gira quando colapsado).
- * - Ativa classe 'sidebar-collapsed' no <body> para o layout acompanhar.
- * - Navegação com react-router-dom (links para Kits, Doce, Salgado, Bolo).
- */
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
 
@@ -24,14 +18,14 @@ export default function Sidebar() {
 
       <Toggle
         type="button"
-        onClick={() => setCollapsed((v) => !v)}
+        onClick={() => setCollapsed(v => !v)}
         aria-expanded={!collapsed}
         aria-controls="sidebar-nav"
         aria-label={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
         $collapsed={collapsed}
       >
         <span className="chevron">◀</span>
-        <span className="label">{/* sem texto de 'expandir' ao colapsar */}Recolher</span>
+        <span className="label">Recolher</span>
       </Toggle>
 
       <Nav id="sidebar-nav" role="navigation" aria-label="Principal">
@@ -59,9 +53,15 @@ export default function Sidebar() {
           <ItemIcon>🍰</ItemIcon>
           <span>Bolo</span>
         </NavItem>
+
         <NavItem to="/historico" $collapsed={collapsed} className={({ isActive }) => (isActive ? 'active' : '')}>
           <ItemIcon>🕘</ItemIcon>
           <span>Histórico</span>
+        </NavItem>
+
+        <NavItem to="/relatorios" $collapsed={collapsed} className={({ isActive }) => (isActive ? 'active' : '')}>
+          <ItemIcon>📈</ItemIcon>
+          <span>Relatórios</span>
         </NavItem>
       </Nav>
     </Wrapper>

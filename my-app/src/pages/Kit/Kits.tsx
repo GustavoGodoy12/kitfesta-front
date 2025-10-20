@@ -1,4 +1,3 @@
-// src/pages/Kit/Kits.tsx
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -116,6 +115,7 @@ export default function Kits() {
   const [hora, setHora] = useState<string>('')
   const [tipo, setTipo] = useState<'retirada' | 'entrega'>('retirada')
   const [endereco, setEndereco] = useState('')
+  const [precoStr, setPrecoStr] = useState('') // <-- NOVO: input controlado para preço
 
   // itens iniciais (criação)
   const [doceSel, setDoceSel] = useState<string>('')   // será preenchido quando DOCES carregar
@@ -222,7 +222,7 @@ export default function Kits() {
   function resetModal() {
     setEditingKitId(null)
     setNome(''); setTelefone(''); setEmail(''); setDia(''); setHora('')
-    setTipo('retirada'); setEndereco('')
+    setTipo('retirada'); setEndereco(''); setPrecoStr('') // limpa preço
     setDoces([]); setSalgados([]); setBolos([])
     setDoceSel(DOCES[0] || ''); setDoceQtd(10)
     setSalgadoSel(SALGADOS[0] || ''); setSalgadoQtd(10)
@@ -234,6 +234,13 @@ export default function Kits() {
     const copy = [...list]; copy.splice(idx, 1); setter(copy)
   }
 
+  function parsePreco(str: string): number {
+    // aceita vírgula decimal e espaços
+    const normalized = (str || '').replace(/\s/g, '').replace(',', '.')
+    const n = Number(normalized)
+    return Number.isFinite(n) ? n : NaN
+  }
+
   async function onCreateOrEdit(e: FormEvent) {
     e.preventDefault()
     if (saving) return
@@ -241,6 +248,8 @@ export default function Kits() {
     try {
       if (!nome.trim() || !telefone.trim() || !tipo) throw new Error('Preencha nome, telefone e tipo.')
       if (tipo === 'entrega' && !endereco.trim()) throw new Error('Endereço é obrigatório para entrega.')
+      const precoNum = parsePreco(precoStr)
+      if (!editingKitId && (!Number.isFinite(precoNum) || precoNum < 0)) throw new Error('Informe um preço válido (ex.: 49,90).')
 
       if (editingKitId) {
         const kit = kitsRaw.find(k => k.id === editingKitId)
@@ -254,6 +263,7 @@ export default function Kits() {
           hora: hora || undefined,
           tipo,
           endereco: tipo === 'entrega' ? endereco.trim() : undefined,
+          ...(precoStr.trim() !== '' ? { preco: precoNum } : {}), // envia se usuário preencheu
         })
       } else {
         const kit = await createKit({
@@ -264,6 +274,7 @@ export default function Kits() {
           hora: hora || undefined,
           tipo,
           endereco: tipo === 'entrega' ? endereco.trim() : undefined,
+          preco: precoNum, // obrigatório no create
         })
         // itens iniciais
         await Promise.all([
@@ -293,6 +304,11 @@ export default function Kits() {
     setEditingKitId(kit.id)
     setNome(kit.nome || ''); setTelefone(kit.telefone || ''); setEmail(kit.email || '')
     setDia(kit.dataEvento || ''); setHora(kit.hora || ''); setTipo(kit.tipo); setEndereco(kit.endereco || '')
+    setPrecoStr(
+      typeof kit.preco === 'number' && Number.isFinite(kit.preco)
+        ? kit.preco.toFixed(2)
+        : ''
+    )
     setOpenModal(true)
   }
 
@@ -455,6 +471,18 @@ export default function Kits() {
                   <Input required value={endereco} onChange={e => setEndereco(e.target.value)} placeholder="Rua, número, bairro, cidade" />
                 </Field>
               )}
+
+              {/* NOVO: Preço */}
+              <Field>
+                <Label>Preço {editingKitId ? '' : '*'}</Label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Ex.: 49,90"
+                  value={precoStr}
+                  onChange={e => setPrecoStr(e.target.value)}
+                />
+              </Field>
 
               {/* ===================== Itens iniciais (mantidos) ===================== */}
               {!editingKitId && (

@@ -66,9 +66,18 @@ export default function KitDetail() {
     setKit({ ...next })
   }
 
-  async function handleHeaderUpdate(field: 'nome' | 'cliente' | 'dataEvento', value: string) {
+  function parsePrecoInput(value: string): number {
+    const normalized = (value || '').replace(/\s/g, '').replace(',', '.')
+    const n = Number(normalized)
+    return Number.isFinite(n) ? n : 0
+  }
+
+  async function handleHeaderUpdate(field: 'nome' | 'cliente' | 'dataEvento' | 'preco', value: string) {
     if (!kit) return
-    const next = { ...kit, [field]: value }
+    const next = {
+      ...kit,
+      [field]: field === 'preco' ? parsePrecoInput(value) : value,
+    }
     await persist(next)
   }
 
@@ -100,6 +109,16 @@ export default function KitDetail() {
           <div>
             <Label>Data do evento</Label>
             <Input type="date" value={kit.dataEvento || ''} onChange={e => handleHeaderUpdate('dataEvento', e.target.value)} />
+          </div>
+          <div>
+            <Label>Preço (R$)</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={typeof kit.preco === 'number' ? kit.preco.toFixed(2) : ''}
+              onChange={e => handleHeaderUpdate('preco', e.target.value)}
+              placeholder="Ex.: 49,90"
+            />
           </div>
           <div style={{ alignSelf: 'end' }}>
             <SmallMuted>Totais — Doces: {totais.doces} · Salgados: {totais.salgados} · Bolo: {totais.bolos}</SmallMuted>

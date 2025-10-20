@@ -37,11 +37,17 @@ export type Kit = {
   tipo: TipoEntrega
   endereco?: string
 
+  /** NOVO: preço do kit */
+  preco?: number
+
   doces: Doce[]
   salgados: Salgado[]
   bolos: Bolo[]
 
   status?: KitStatus
+
+  /** pode ser preenchido pelo backend; útil em algumas telas */
+  entregue?: boolean
 
   criadoEm: string
   atualizadoEm: string
