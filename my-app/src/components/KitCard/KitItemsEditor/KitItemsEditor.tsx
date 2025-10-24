@@ -1,4 +1,3 @@
-// src/components/KitCard/KitItemsEditor/KitItemsEditor.tsx
 import { useEffect, useMemo, useState } from 'react'
 import type { Kit, Doce, Salgado, Bolo, IdNum } from '../../../types/kit'
 import {
@@ -8,6 +7,7 @@ import {
   updateItem,
   removeItem,
   getKit,
+  saveKit, // <<-- adicionado para salvar frete
 } from '../../../data/kitsRepo'
 import {
   ModalOverlay,
@@ -52,6 +52,9 @@ export default function KitItemsEditor({ open, kit, onClose, onChanged }: Props)
   const [boloQtd, setBoloQtd] = useState(1)
   const [boloTexto, setBoloTexto] = useState('')
 
+  // frete (somente para entrega)
+  const [precoFreteStr, setPrecoFreteStr] = useState('')
+
   // quando sabores carregarem, garantir um valor default
   useEffect(() => {
     if (!doceSel && DOCES.length) setDoceSel(DOCES[0])
@@ -81,6 +84,7 @@ export default function KitItemsEditor({ open, kit, onClose, onChanged }: Props)
           setDraftDoces([])
           setDraftSalgados([])
           setDraftBolos([])
+          setPrecoFreteStr('')
         }
         return
       }
@@ -93,6 +97,9 @@ export default function KitItemsEditor({ open, kit, onClose, onChanged }: Props)
         setDraftDoces((k.doces ?? []).map(d => ({ ...d })))
         setDraftSalgados((k.salgados ?? []).map(s => ({ ...s })))
         setDraftBolos((k.bolos ?? []).map(b => ({ ...b })))
+
+        const frete = (k as any).precoFrete
+        setPrecoFreteStr(typeof frete === 'number' && Number.isFinite(frete) ? frete.toFixed(2) : '')
       } finally {
         if (alive) setLoading(false)
       }
@@ -121,11 +128,29 @@ export default function KitItemsEditor({ open, kit, onClose, onChanged }: Props)
     setter(copy)
   }
 
+  function parsePreco(str: string): number {
+    const normalized = (str || '').replace(/\s/g, '').replace(',', '.')
+    const n = Number(normalized)
+    return Number.isFinite(n) ? n : NaN
+  }
+
   // ===== SALVAR (aplica diff no backend) =====
   async function onSave() {
     if (!originalKit) return
     setSaving(true)
     try {
+      // ----- FRETE (se entrega) -----
+      if (originalKit.tipo === 'entrega') {
+        const freteNum = precoFreteStr.trim() === '' ? null : parsePreco(precoFreteStr)
+        if (freteNum !== null && (!Number.isFinite(freteNum) || freteNum < 0)) {
+          throw new Error('Informe um valor de frete válido (ex.: 10,00).')
+        }
+        await saveKit({ ...originalKit, precoFrete: freteNum } as any)
+      } else {
+        // se mudou para retirada, limpa frete no backend
+        await saveKit({ ...originalKit, precoFrete: null } as any)
+      }
+
       // ------- DOCES -------
       {
         const origById = new Map<IdNum, Doce>((originalKit.doces ?? []).map(d => [d.id, d]))
@@ -269,6 +294,25 @@ export default function KitItemsEditor({ open, kit, onClose, onChanged }: Props)
           </strong>
         </div>
 
+        {/* ===== Frete (somente se entrega) ===== */}
+        {originalKit.tipo === 'entrega' && (
+          <>
+            <ModalGrid>
+              <Field>
+                <Label>Valor do frete</Label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Ex.: 10,00"
+                  value={precoFreteStr}
+                  onChange={e => setPrecoFreteStr(e.target.value)}
+                />
+              </Field>
+            </ModalGrid>
+            <Divider />
+          </>
+        )}
+
         {loading && <Muted>Carregando itens…</Muted>}
 
         {/* ===================== DOCES ===================== */}
@@ -395,7 +439,7 @@ export default function KitItemsEditor({ open, kit, onClose, onChanged }: Props)
             </Select>
           </Field>
 
-          <Field>
+        <Field>
             <Label>Quantidade</Label>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <input type="range" min={0} max={20} step={1} value={boloQtd} onChange={e => setBoloQtd(Number(e.target.value))} />

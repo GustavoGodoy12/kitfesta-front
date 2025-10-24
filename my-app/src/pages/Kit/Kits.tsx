@@ -112,6 +112,7 @@ export default function Kits() {
   const [tipo, setTipo] = useState<'retirada' | 'entrega'>('retirada')
   const [endereco, setEndereco] = useState('')
   const [precoStr, setPrecoStr] = useState('')
+  const [precoFreteStr, setPrecoFreteStr] = useState('') // <<-- NOVO (somente entrega)
 
   // itens iniciais (criação)
   const [doceSel, setDoceSel] = useState<string>('')
@@ -253,7 +254,7 @@ export default function Kits() {
   function resetModal() {
     setEditingKitId(null)
     setNome(''); setTelefone(''); setEmail(''); setDia(''); setHora('')
-    setTipo('retirada'); setEndereco(''); setPrecoStr('')
+    setTipo('retirada'); setEndereco(''); setPrecoStr(''); setPrecoFreteStr('')
     setDoces([]); setSalgados([]); setBolos([])
     setDoceSel(DOCES[0] || ''); setDoceQtd(10)
     setSalgadoSel(SALGADOS[0] || ''); setSalgadoQtd(10)
@@ -281,6 +282,21 @@ export default function Kits() {
       const precoNum = parsePreco(precoStr)
       if (!editingKitId && (!Number.isFinite(precoNum) || precoNum < 0)) throw new Error('Informe um preço válido (ex.: 49,90).')
 
+      // frete (opcional — apenas entrega)
+      let freteNum: number | null | undefined = undefined
+      if (tipo === 'entrega') {
+        const trimmed = precoFreteStr.trim()
+        if (trimmed !== '') {
+          const n = parsePreco(trimmed)
+          if (!Number.isFinite(n) || n < 0) throw new Error('Informe um valor de frete válido (ex.: 10,00).')
+          freteNum = n
+        } else {
+          freteNum = null // envia null para limpar no backend
+        }
+      } else {
+        freteNum = null
+      }
+
       if (editingKitId) {
         const kit = kitsRaw.find(k => k.id === editingKitId)
         if (!kit) throw new Error('Kit não encontrado.')
@@ -294,7 +310,8 @@ export default function Kits() {
           tipo,
           endereco: tipo === 'entrega' ? endereco.trim() : undefined,
           ...(precoStr.trim() !== '' ? { preco: precoNum } : {}),
-        })
+          ...(freteNum !== undefined ? { precoFrete: freteNum } : {}), // <<-- envia frete
+        } as any)
       } else {
         const kit = await createKit({
           nome: nome.trim(),
@@ -305,7 +322,8 @@ export default function Kits() {
           tipo,
           endereco: tipo === 'entrega' ? endereco.trim() : undefined,
           preco: precoNum,
-        })
+          ...(tipo === 'entrega' ? { precoFrete: (precoFreteStr.trim() === '' ? null : parsePreco(precoFreteStr)) } : { precoFrete: null }),
+        } as any)
         await Promise.all([
           ...doces.map(d => addDoce(kit.id, { sabor: d.sabor, quantidade: d.quantidade })),
           ...salgados.map(s => addSalgado(kit.id, { sabor: s.sabor, quantidade: s.quantidade })),
@@ -338,6 +356,9 @@ export default function Kits() {
         ? kit.preco.toFixed(2)
         : ''
     )
+    // frete
+    const frete = (kit as any).precoFrete
+    setPrecoFreteStr(typeof frete === 'number' && Number.isFinite(frete) ? frete.toFixed(2) : '')
     setOpenModal(true)
   }
 
@@ -547,10 +568,24 @@ export default function Kits() {
               </Field>
 
               {tipo === 'entrega' && (
-                <Field style={{ gridColumn: '1 / -1' }}>
-                  <Label>Endereço *</Label>
-                  <Input required value={endereco} onChange={e => setEndereco(e.target.value)} placeholder="Rua, número, bairro, cidade" />
-                </Field>
+                <>
+                  <Field style={{ gridColumn: '1 / -1' }}>
+                    <Label>Endereço *</Label>
+                    <Input required value={endereco} onChange={e => setEndereco(e.target.value)} placeholder="Rua, número, bairro, cidade" />
+                  </Field>
+
+                  {/* Valor do frete (opcional) */}
+                  <Field>
+                    <Label>Valor do frete</Label>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Ex.: 10,00"
+                      value={precoFreteStr}
+                      onChange={e => setPrecoFreteStr(e.target.value)}
+                    />
+                  </Field>
+                </>
               )}
 
               <Field>
