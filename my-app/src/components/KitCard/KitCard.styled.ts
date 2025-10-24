@@ -1,4 +1,3 @@
-// src/components/KitCard/KitCard.styled.ts
 import styled from 'styled-components'
 
 export const CardKit = styled.article<{ $done?: boolean; $overdue?: boolean }>`
@@ -8,20 +7,21 @@ export const CardKit = styled.article<{ $done?: boolean; $overdue?: boolean }>`
   border: 2px solid
     ${({ $done, $overdue }) =>
       $done ? '#059669' : $overdue ? '#dc2626' : 'var(--border)'};
-  border-radius: 16px;
+  border-radius: 20px;
 
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 
-  padding: 16px;
+  padding: 22px;
+  min-height: 220px; /* deixa o card mais alto/robusto */
 
   transition: transform .12s ease, box-shadow .12s ease, background .2s ease, border-color .12s ease;
   cursor: pointer;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0,0,0,.06);
+    box-shadow: 0 8px 22px rgba(0,0,0,.08);
     background: ${({ $done }) => ($done ? '#bff2cf' : '#eef2f7')};
     border-color: ${({ $done, $overdue }) => ($done ? '#059669' : $overdue ? '#b91c1c' : 'var(--orange)')};
   }
@@ -31,17 +31,17 @@ export const CardKit = styled.article<{ $done?: boolean; $overdue?: boolean }>`
 
 export const UndoCorner = styled.button`
   position: absolute;
-  top: 10px;
-  right: 10px;
-  height: 28px;
-  min-width: 28px;
-  padding: 0 8px;
+  top: 12px;
+  right: 12px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0 10px;
   border-radius: 999px;
   border: 1px solid #059669;
   background: #d1fae5;
   color: #065f46;
   font-size: 14px;
-  line-height: 26px;
+  line-height: 28px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -54,8 +54,8 @@ export const UndoCorner = styled.button`
 /* Badges acima do título */
 export const DoneBadgeTop = styled.div`
   align-self: flex-start;
-  margin-top: -4px;
-  margin-bottom: 4px;
+  margin-top: -2px;
+  margin-bottom: 6px;
   padding: 6px 12px;
   border-radius: 999px;
   background: #10b981;
@@ -69,8 +69,8 @@ export const DoneBadgeTop = styled.div`
 
 export const OverdueBadgeTop = styled.div`
   align-self: flex-start;
-  margin-top: -4px;
-  margin-bottom: 4px;
+  margin-top: -2px;
+  margin-bottom: 6px;
   padding: 6px 12px;
   border-radius: 999px;
   background: #fee2e2;
@@ -84,9 +84,19 @@ export const OverdueBadgeTop = styled.div`
 
 export const KitHeader = styled.div`
   display: grid;
-  gap: 4px;
-  strong { color: var(--text); }
-  small { color: var(--muted); }
+  gap: 6px;
+
+  strong {
+    color: var(--text);
+    font-size: 1.08rem; /* ligeiramente maior */
+  }
+
+  /* Descrição (data, hora, tipo) agora em negrito e mesma cor do nome */
+  small {
+    color: var(--text);
+    font-weight: 700;
+    font-size: 0.98rem;
+  }
 `
 
 export const StatRow = styled.div`
@@ -95,12 +105,12 @@ export const StatRow = styled.div`
   flex-wrap: wrap;
 
   span {
-    font-size: .9rem;
+    font-size: 1rem; /* maior */
     color: var(--text);
     background: #fff;
     border: 1px solid var(--border);
     border-radius: 999px;
-    padding: 4px 10px;
+    padding: 6px 12px; /* maior */
   }
 `
 
@@ -112,27 +122,27 @@ export const CardActions = styled.div`
   justify-content: flex-end;
   align-items: center;
 
-  min-height: 48px;
-  padding-top: 4px;
+  min-height: 56px; /* um pouco maior para equilibrar o card */
+  padding-top: 6px;
 
   & > button {
-    height: 44px;
-    min-width: 120px;
-    padding: 0 12px;
+    height: 46px;
+    min-width: 130px;
+    padding: 0 14px;
     white-space: nowrap;
   }
 
   @media (max-width: 520px) {
     & > button {
-      height: 40px;
-      min-width: 100px;
+      height: 42px;
+      min-width: 110px;
     }
   }
 `;
 
 export const DangerButton = styled.button`
-  border-radius: 8px;
-  padding: 8px 12px;
+  border-radius: 10px;
+  padding: 10px 14px;
   border: 1px solid var(--border);
   background: #fff;
   color: #b91c1c;

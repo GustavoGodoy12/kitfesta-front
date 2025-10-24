@@ -78,7 +78,7 @@ export default function KitCard({
 
       {/* Cabeçalho */}
       <KitHeader>
-        <strong>{kit.nome} <Muted>· ID: {kit.id}</Muted></strong>
+        <strong>{kit.nome} <Muted>· Número: {kit.id}</Muted></strong>
         <small>
           {kit.dataEvento || 'Data —'} {kit.hora ? `· ${kit.hora}` : ''} · {kit.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
         </small>

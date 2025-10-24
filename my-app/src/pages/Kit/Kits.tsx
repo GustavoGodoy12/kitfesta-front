@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+
 import {
   createKit,
   deleteKit,
@@ -11,13 +11,13 @@ import {
   isAllDone,
   saveKit,
   setEntregue,
+  listKits,
 } from '../../data/kitsRepo'
 import type { Kit } from '../../types/kit'
 import {
   Actions,
   BadgeList,
   Button,
-  DateInput,
   Divider,
   Field,
   FormGrid,
@@ -31,11 +31,9 @@ import {
   ModalTitle,
   Page,
   RightGroup,
-  Select,
   Subtitle,
   Title,
   TopBar,
-  RangeRow,
 } from './Kits.styled'
 import KitCard from '../../components/KitCard/KitCard'
 import KitInfoModal from '../../components/KitCard/KitInfoModal'
@@ -48,7 +46,6 @@ type NewItem = { sabor: string; quantidade: number }
 type NewBolo = NewItem & { texto?: string }
 
 /* ================= helpers de busca ================= */
-// normaliza texto: remove acentos, baixa caixa e limpa espaços extras
 function norm(s: string) {
   return (s || '')
     .normalize('NFD')
@@ -57,41 +54,36 @@ function norm(s: string) {
     .trim()
     .replace(/\s+/g, ' ')
 }
-// só dígitos (para telefone)
-function digits(s: string) {
-  return (s || '').replace(/\D/g, '')
-}
-// confere se um kit bate com a query (nome/telefone) — todos os tokens precisam bater (AND)
-function matchesQuery(kit: { nome?: string; telefone?: string }, query: string) {
+function matchesNome(kit: { nome?: string }, query: string) {
   const q = norm(query)
   if (!q) return true
   const name = norm(kit.nome || '')
-  const phone = digits(kit.telefone || '')
   const tokens = q.split(' ').filter(Boolean)
-  return tokens.every(tok => {
-    const tokDigits = digits(tok)
-    if (tokDigits.length >= 3 && phone.includes(tokDigits)) return true
-    return name.includes(tok)
-  })
+  return tokens.every(tok => name.includes(tok))
+}
+function onlyDigits(s: string) {
+  return (s || '').replace(/\D/g, '')
+}
+function isoDateOnly(d: string | null | undefined) {
+  if (!d) return ''
+  const t = String(d)
+  if (t.length >= 10) return t.slice(0, 10)
+  return t
 }
 /* ==================================================== */
 
 export default function Kits() {
-  const navigate = useNavigate()
+  
 
-  // sabores dinâmicos (com fallback interno no hook)
   const { doces: DOCES, salgados: SALGADOS, bolos: BOLOS } = useSabores()
 
   // ===== estado geral / filtros =====
   const [refresh, setRefresh] = useState(0)
   const [orderAsc, setOrderAsc] = useState<boolean>(true)
 
-  // Busca & filtros avançados
-  const [q, setQ] = useState('')                         // nome/telefone
-  const [dateStart, setDateStart] = useState<string>('') // início
-  const [dateEnd, setDateEnd] = useState<string>('')     // fim
-  const [onlyPendentes, setOnlyPendentes] = useState(false)
-  const [tipoFilter, setTipoFilter] = useState<'todos'|'retirada'|'entrega'>('todos')
+  // Busca (filtros simplificados)
+  const [qNome, setQNome] = useState('')      // nome
+  const [qNumero, setQNumero] = useState('')  // id (número)
 
   // modal criar/editar
   const [openModal, setOpenModal] = useState(false)
@@ -115,42 +107,49 @@ export default function Kits() {
   const [hora, setHora] = useState<string>('')
   const [tipo, setTipo] = useState<'retirada' | 'entrega'>('retirada')
   const [endereco, setEndereco] = useState('')
-  const [precoStr, setPrecoStr] = useState('') // <-- NOVO: input controlado para preço
+  const [precoStr, setPrecoStr] = useState('')
 
   // itens iniciais (criação)
-  const [doceSel, setDoceSel] = useState<string>('')   // será preenchido quando DOCES carregar
+  const [doceSel, setDoceSel] = useState<string>('')
   const [doceQtd, setDoceQtd] = useState(10)
   const [doces, setDoces] = useState<NewItem[]>([])
 
-  const [salgadoSel, setSalgadoSel] = useState<string>('') // idem
+  const [salgadoSel, setSalgadoSel] = useState<string>('')
   const [salgadoQtd, setSalgadoQtd] = useState(10)
   const [salgados, setSalgados] = useState<NewItem[]>([])
 
-  const [boloSel, setBoloSel] = useState<string>('') // idem
+  const [boloSel, setBoloSel] = useState<string>('')
   const [boloQtd, setBoloQtd] = useState(1)
   const [boloTexto, setBoloTexto] = useState('')
   const [bolos, setBolos] = useState<NewBolo[]>([])
 
-  // garante que selects tenham um valor default quando sabores carregarem
-  useEffect(() => {
-    if (!doceSel && DOCES.length) setDoceSel(DOCES[0])
-    if (!salgadoSel && SALGADOS.length) setSalgadoSel(SALGADOS[0])
-    if (!boloSel && BOLOS.length) setBoloSel(BOLOS[0])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [DOCES, SALGADOS, BOLOS])
-
-  // dados (somente NÃO entregues)
-  const [kitsRaw, setKitsRaw] = useState<Kit[]>([])
+  // ===== dados =====
+  const [kitsRaw, setKitsRaw] = useState<Kit[]>([])  // somente não entregues
+  const [doneToday, setDoneToday] = useState<Kit[]>([]) // entregues/retirados hoje
   const [loading, setLoading] = useState(false)
   const [loadErr, setLoadErr] = useState('')
 
+  const todayISO = todayLocalISO()
+
+  // carrega não entregues + “finalizados hoje” do backend
   useEffect(() => {
     let alive = true
     ;(async () => {
       setLoading(true); setLoadErr('')
       try {
-        const data = await listNaoEntregues()
-        if (alive) setKitsRaw(data)
+        const [naoEntregues, all] = await Promise.all([
+          listNaoEntregues(),
+          listKits(),
+        ])
+        if (!alive) return
+        setKitsRaw(naoEntregues)
+
+        // finalizados hoje: entregue === 1 E atualizadoEm (data) === hoje
+        const finals = (all || []).filter(k =>
+          Number(k.entregue) === 1 &&
+          isoDateOnly(k.atualizadoEm) === todayISO
+        )
+        setDoneToday(finals)
       } catch (e: any) {
         if (alive) setLoadErr(e?.message || 'Falha ao carregar kits')
       } finally {
@@ -160,8 +159,7 @@ export default function Kits() {
     return () => { alive = false }
   }, [refresh])
 
-  // ===== Helpers de datas / atraso =====
-  const todayISO = todayLocalISO()
+  // ===== Helpers de atraso =====
   function isSameDay(d?: string, isoDay?: string) {
     return (d || '') === (isoDay || '')
   }
@@ -169,10 +167,8 @@ export default function Kits() {
     const d = k.dataEvento
     if (!d) return false
     const now = new Date()
-    const today = todayISO
-    if (d < today) return true
-    if (d > today) return false
-    // hoje
+    if (d < todayISO) return true
+    if (d > todayISO) return false
     const [h, m] = (k.hora || '23:59').split(':').map(Number)
     const cmp = new Date()
     cmp.setHours(h || 23, m || 59, 0, 0)
@@ -186,43 +182,54 @@ export default function Kits() {
     return { totalHoje: hoje.length, atrasadosHoje: atras.length }
   }, [kitsRaw])
 
-  // ===== Busca + Filtros =====
+  // ===== Busca (nome, número) + ordenação =====
   const kitsFilteredSorted = useMemo(() => {
     let arr = [...kitsRaw]
 
-    // busca por nome/telefone (normalizada + múltiplos tokens)
-    if (q.trim()) {
-      arr = arr.filter(k => matchesQuery({ nome: k.nome, telefone: k.telefone }, q))
+    const numQuery = onlyDigits(qNumero)
+    if (numQuery.length > 0) {
+      arr = arr.filter(k => String(k.id).includes(numQuery))
     }
 
-    // por tipo
-    if (tipoFilter !== 'todos') {
-      arr = arr.filter(k => k.tipo === tipoFilter)
+    if (qNome.trim()) {
+      arr = arr.filter(k => matchesNome({ nome: k.nome }, qNome))
     }
 
-    // por intervalo de datas (compara ISO YYYY-MM-DD)
-    if (dateStart) arr = arr.filter(k => (k.dataEvento || '') >= dateStart)
-    if (dateEnd)   arr = arr.filter(k => (k.dataEvento || '') <= dateEnd)
-
-    // só pendentes (tem algo a fazer)
-    if (onlyPendentes) {
-      arr = arr.filter(k => !isAllDone(k))
-    }
-
-    // ordenação por hora
     arr.sort((a, b) => {
       const ha = a.hora || ''
       const hb = b.hora || ''
       if (ha === hb) return 0
-      return (ha < hb ? -1 : 1) * (orderAsc ? 1 : -1)
+      const cmp = ha < hb ? -1 : 1
+      return orderAsc ? cmp : -cmp
     })
     return arr
-  }, [kitsRaw, q, tipoFilter, dateStart, dateEnd, onlyPendentes, orderAsc])
+  }, [kitsRaw, qNome, qNumero, orderAsc])
+
+  // mesma busca aplicada à seção “finalizados hoje”
+  const doneTodayFiltered = useMemo(() => {
+    let arr = [...doneToday]
+
+    const numQuery = onlyDigits(qNumero)
+    if (numQuery.length > 0) {
+      arr = arr.filter(k => String(k.id).includes(numQuery))
+    }
+    if (qNome.trim()) {
+      arr = arr.filter(k => matchesNome({ nome: k.nome }, qNome))
+    }
+    arr.sort((a, b) => {
+      const ha = a.hora || ''
+      const hb = b.hora || ''
+      if (ha === hb) return 0
+      const cmp = ha < hb ? -1 : 1
+      return orderAsc ? cmp : -cmp
+    })
+    return arr
+  }, [doneToday, qNome, qNumero, orderAsc])
 
   function resetModal() {
     setEditingKitId(null)
     setNome(''); setTelefone(''); setEmail(''); setDia(''); setHora('')
-    setTipo('retirada'); setEndereco(''); setPrecoStr('') // limpa preço
+    setTipo('retirada'); setEndereco(''); setPrecoStr('')
     setDoces([]); setSalgados([]); setBolos([])
     setDoceSel(DOCES[0] || ''); setDoceQtd(10)
     setSalgadoSel(SALGADOS[0] || ''); setSalgadoQtd(10)
@@ -235,7 +242,6 @@ export default function Kits() {
   }
 
   function parsePreco(str: string): number {
-    // aceita vírgula decimal e espaços
     const normalized = (str || '').replace(/\s/g, '').replace(',', '.')
     const n = Number(normalized)
     return Number.isFinite(n) ? n : NaN
@@ -263,7 +269,7 @@ export default function Kits() {
           hora: hora || undefined,
           tipo,
           endereco: tipo === 'entrega' ? endereco.trim() : undefined,
-          ...(precoStr.trim() !== '' ? { preco: precoNum } : {}), // envia se usuário preencheu
+          ...(precoStr.trim() !== '' ? { preco: precoNum } : {}),
         })
       } else {
         const kit = await createKit({
@@ -274,9 +280,8 @@ export default function Kits() {
           hora: hora || undefined,
           tipo,
           endereco: tipo === 'entrega' ? endereco.trim() : undefined,
-          preco: precoNum, // obrigatório no create
+          preco: precoNum,
         })
-        // itens iniciais
         await Promise.all([
           ...doces.map(d => addDoce(kit.id, { sabor: d.sabor, quantidade: d.quantidade })),
           ...salgados.map(s => addSalgado(kit.id, { sabor: s.sabor, quantidade: s.quantidade })),
@@ -315,7 +320,7 @@ export default function Kits() {
   return (
     <Page>
       <Title>Kits</Title>
-      <Subtitle>Somente kits <strong>não entregues</strong> são exibidos aqui. Os entregues aparecem no Histórico.</Subtitle>
+      <Subtitle>Somente kits <strong>não entregues</strong> são exibidos abaixo. Os kits marcados como <strong>Entregue/Retirado</strong> hoje aparecem ao final da página; amanhã irão para o Histórico.</Subtitle>
 
       {/* ===== ALERTAS DO DIA ===== */}
       <div style={{ display:'flex', gap:12, alignItems:'center', margin:'8px 0 4px' }}>
@@ -346,41 +351,42 @@ export default function Kits() {
         </div>
       )}
 
-      {/* ===== BARRA DE BUSCA + FILTROS ===== */}
+      {/* ===== BARRA DE BUSCA ===== */}
       <TopBar>
         <LeftGroup>
           <Button onClick={openCreate}>+ Adicionar</Button>
         </LeftGroup>
 
-        <RightGroup style={{ rowGap: 8 }}>
-          <Input
-            placeholder="Buscar por nome ou telefone"
-            value={q}
-            onChange={e => setQ(e.target.value)}
-            style={{ minWidth: 240 }}
-          />
-          <DateInput type="date" value={dateStart} onChange={e => setDateStart(e.target.value)} />
-          <span>→</span>
-          <DateInput type="date" value={dateEnd} onChange={e => setDateEnd(e.target.value)} />
-          <Select value={tipoFilter} onChange={e => setTipoFilter(e.target.value as any)}>
-            <option value="todos">Todos</option>
-            <option value="retirada">Retirada</option>
-            <option value="entrega">Entrega</option>
-          </Select>
-          <label style={{ display:'inline-flex', alignItems:'center', gap:8 }}>
-            <input type="checkbox" checked={onlyPendentes} onChange={e => setOnlyPendentes(e.target.checked)} />
-            Só pendentes
-          </label>
-          <Button onClick={() => setOrderAsc(v => !v)}>Ordenar por hora {orderAsc ? '↑' : '↓'}</Button>
-          <Button onClick={() => {
-            setQ(''); setDateStart(''); setDateEnd(''); setTipoFilter('todos'); setOnlyPendentes(false); setOrderAsc(true)
-          }}>
-            Limpar filtros
+        <RightGroup>
+          <Field>
+            <Label>Buscar por nome</Label>
+            <Input
+              placeholder="Digite o nome…"
+              value={qNome}
+              onChange={e => setQNome(e.target.value)}
+              style={{ minWidth: 240 }}
+            />
+          </Field>
+
+          <Field>
+            <Label>Número</Label>
+            <Input
+              type="text"
+              inputMode="numeric"
+              placeholder="Ex.: 123"
+              value={qNumero}
+              onChange={e => setQNumero(e.target.value)}
+              style={{ width: 140 }}
+            />
+          </Field>
+
+          <Button onClick={() => setOrderAsc(v => !v)}>
+            Ordenar por hora {orderAsc ? '↑' : '↓'}
           </Button>
-          <Button onClick={() => navigate('/historico')}>Histórico</Button>
         </RightGroup>
       </TopBar>
 
+      {/* ===== LISTA PRINCIPAL (NÃO ENTREGUES) ===== */}
       <h2 style={{ margin: '8px 0 0' }}>Seus kits</h2>
 
       {loading ? (
@@ -389,37 +395,65 @@ export default function Kits() {
         <Subtitle>Nenhum kit encontrado.</Subtitle>
       ) : (
         <GridCards>
-          {kitsFilteredSorted.map(k => (
-            <KitCard
-              key={k.id}
-              kit={k}
-              done={isAllDone(k)}
-              overdue={isOverdue(k)}
-              onClick={(kit) => { setSelectedKit(kit); setOpenInfo(true) }}
-              onRemove={async (kit) => {
-                if (confirm('Remover este kit?')) {
-                  await deleteKit(kit.id)
-                  setRefresh(x => x + 1)
-                }
-              }}
-              footer={
-                <Button
-                  onClick={async (e) => {
-                    e.stopPropagation()
-                    await setEntregue(k.id, true)
+          {kitsFilteredSorted.map(k => {
+            const actionLabel = k.tipo === 'entrega' ? 'Entregue' : 'Retirado'
+            return (
+              <KitCard
+                key={k.id}
+                kit={k}
+                done={isAllDone(k)}
+                overdue={isOverdue(k)}
+                onClick={(kit) => { setSelectedKit(kit); setOpenInfo(true) }}
+                onRemove={async (kit) => {
+                  if (confirm('Remover este kit?')) {
+                    await deleteKit(kit.id)
                     setRefresh(x => x + 1)
-                    navigate('/historico')
-                  }}
-                >
-                  Entregue
-                </Button>
-              }
-            />
-          ))}
+                  }
+                }}
+                footer={
+                  <Button
+                    onClick={async (e) => {
+                      e.stopPropagation()
+                      await setEntregue(k.id, true) // marca no backend
+                      setSuccessMsg(`${actionLabel} marcado com sucesso!`)
+                      setRefresh(x => x + 1) // recarrega listas
+                      window.setTimeout(() => setSuccessMsg(''), 2500)
+                    }}
+                  >
+                    {actionLabel}
+                  </Button>
+                }
+              />
+            )
+          })}
         </GridCards>
       )}
 
-      {/* Modal de criação/edição */}
+      {/* ===== SEÇÃO: FINALIZADOS HOJE (agora embaixo) ===== */}
+      {doneTodayFiltered.length > 0 && (
+        <>
+          <Divider />
+          <h2 style={{ margin: '8px 0 0' }}>Kits finalizados hoje</h2>
+          <GridCards>
+            {doneTodayFiltered.map(k => (
+              <KitCard
+                key={`done-${k.id}`}
+                kit={k}
+                done
+                overdue={false}
+                onClick={(kit) => { setSelectedKit(kit); setOpenInfo(true) }}
+                footer={
+                  <Button onClick={(e) => { e.stopPropagation(); setSelectedKit(k); setOpenInfo(true) }}>
+                    Ver detalhes
+                  </Button>
+                }
+              />
+            ))}
+          </GridCards>
+        </>
+      )}
+
+      {/* Modais */}
       {openModal && (
         <ModalOverlay onMouseDown={() => setOpenModal(false)}>
           <ModalCard onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
@@ -459,10 +493,14 @@ export default function Kits() {
 
               <Field>
                 <Label>Tipo *</Label>
-                <Select value={tipo} onChange={e => setTipo(e.target.value as 'retirada' | 'entrega')}>
+                <select
+                  value={tipo}
+                  onChange={e => setTipo(e.target.value as 'retirada' | 'entrega')}
+                  style={{ padding: 8, borderRadius: 8, border: '1px solid #e5e7eb' }}
+                >
                   <option value="retirada">Retirada</option>
                   <option value="entrega">Entrega</option>
-                </Select>
+                </select>
               </Field>
 
               {tipo === 'entrega' && (
@@ -472,7 +510,6 @@ export default function Kits() {
                 </Field>
               )}
 
-              {/* NOVO: Preço */}
               <Field>
                 <Label>Preço {editingKitId ? '' : '*'}</Label>
                 <Input
@@ -484,25 +521,35 @@ export default function Kits() {
                 />
               </Field>
 
-              {/* ===================== Itens iniciais (mantidos) ===================== */}
+              {/* Itens iniciais (somente criação) */}
               {!editingKitId && (
                 <>
                   <Divider />
 
-                  {/* Doces */}
                   <ModalGrid style={{ gridColumn: '1 / -1' }}>
                     <Field>
                       <Label>Doce (sabor)</Label>
-                      <Select value={doceSel} onChange={e => setDoceSel(e.target.value)}>
+                      <select
+                        value={doceSel}
+                        onChange={e => setDoceSel(e.target.value)}
+                        style={{ padding: 8, borderRadius: 8, border: '1px solid #e5e7eb' }}
+                      >
                         {DOCES.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                      </Select>
+                      </select>
                     </Field>
                     <Field>
                       <Label>Quantidade</Label>
-                      <RangeRow>
-                        <input type="range" min={0} max={2000} step={1} value={doceQtd} onChange={e => setDoceQtd(Number(e.target.value))} />
-                        <output>{doceQtd}</output>
-                      </RangeRow>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={2000}
+                        step={1}
+                        value={doceQtd}
+                        onChange={e => {
+                          const n = Number(e.target.value || 0)
+                          setDoceQtd(Number.isFinite(n) ? Math.max(0, Math.min(2000, n)) : 0)
+                        }}
+                      />
                     </Field>
                     <Actions>
                       <Button
@@ -528,20 +575,30 @@ export default function Kits() {
                     </Field>
                   </ModalGrid>
 
-                  {/* Salgados */}
                   <ModalGrid style={{ gridColumn: '1 / -1' }}>
                     <Field>
                       <Label>Salgado (sabor)</Label>
-                      <Select value={salgadoSel} onChange={e => setSalgadoSel(e.target.value)}>
+                      <select
+                        value={salgadoSel}
+                        onChange={e => setSalgadoSel(e.target.value)}
+                        style={{ padding: 8, borderRadius: 8, border: '1px solid #e5e7eb' }}
+                      >
                         {SALGADOS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                      </Select>
+                      </select>
                     </Field>
                     <Field>
                       <Label>Quantidade</Label>
-                      <RangeRow>
-                        <input type="range" min={0} max={5000} step={5} value={salgadoQtd} onChange={e => setSalgadoQtd(Number(e.target.value))} />
-                        <output>{salgadoQtd}</output>
-                      </RangeRow>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={5000}
+                        step={5}
+                        value={salgadoQtd}
+                        onChange={e => {
+                          const n = Number(e.target.value || 0)
+                          setSalgadoQtd(Number.isFinite(n) ? Math.max(0, Math.min(5000, n)) : 0)
+                        }}
+                      />
                     </Field>
                     <Actions>
                       <Button
@@ -566,21 +623,31 @@ export default function Kits() {
                     </Field>
                   </ModalGrid>
 
-                  {/* Bolos */}
                   <ModalGrid style={{ gridColumn: '1 / -1' }}>
                     <Field>
                       <Label>Bolo (sabor)</Label>
-                      <Select value={boloSel} onChange={e => setBoloSel(e.target.value)}>
+                      <select
+                        value={boloSel}
+                        onChange={e => setBoloSel(e.target.value)}
+                        style={{ padding: 8, borderRadius: 8, border: '1px solid #e5e7eb' }}
+                      >
                         {BOLOS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                      </Select>
+                      </select>
                     </Field>
 
                     <Field>
                       <Label>Quantidade</Label>
-                      <RangeRow>
-                        <input type="range" min={0} max={20} step={1} value={boloQtd} onChange={e => setBoloQtd(Number(e.target.value))} />
-                        <output>{boloQtd}</output>
-                      </RangeRow>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={20}
+                        step={1}
+                        value={boloQtd}
+                        onChange={e => {
+                          const n = Number(e.target.value || 0)
+                          setBoloQtd(Number.isFinite(n) ? Math.max(0, Math.min(20, n)) : 0)
+                        }}
+                      />
                     </Field>
 
                     <Field>
