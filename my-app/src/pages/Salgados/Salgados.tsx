@@ -28,14 +28,23 @@ function matchesNome(kit: { nome?: string }, query: string) {
 function onlyDigits(s: string) {
   return (s || '').replace(/\D/g, '')
 }
+function cmpDateTime(a: Kit, b: Kit, asc: boolean) {
+  const da = a.dataEvento || '9999-12-31'
+  const db = b.dataEvento || '9999-12-31'
+  if (da !== db) return (da < db ? -1 : 1) * (asc ? 1 : -1)
+  const ta = a.hora || '99:99'
+  const tb = b.hora || '99:99'
+  if (ta === tb) return 0
+  return (ta < tb ? -1 : 1) * (asc ? 1 : -1)
+}
 
 export default function Salgados() {
   const [filterDate, setFilterDate] = useState<string>(() => todayLocalISO())
   const [orderAsc, setOrderAsc] = useState<boolean>(true)
   const [refresh, setRefresh] = useState(0)
 
-  const [qNome, setQNome] = useState('')     // novo: busca por nome
-  const [qNumero, setQNumero] = useState('') // novo: busca por número (ID)
+  const [qNome, setQNome] = useState('')
+  const [qNumero, setQNumero] = useState('')
 
   const [openInfo, setOpenInfo] = useState(false)
   const [selectedKit, setSelectedKit] = useState<Kit | null>(null)
@@ -67,7 +76,7 @@ export default function Salgados() {
     // data: de filterDate em diante
     if (filterDate) arr = arr.filter(k => (k.dataEvento || '') >= filterDate)
 
-    // número (ID) — contém
+    // número (ID)
     const numQuery = onlyDigits(qNumero)
     if (numQuery.length > 0) {
       arr = arr.filter(k => String(k.id).includes(numQuery))
@@ -78,8 +87,8 @@ export default function Salgados() {
       arr = arr.filter(k => matchesNome({ nome: k.nome }, qNome))
     }
 
-    // ordenação por hora
-    arr.sort((a, b) => ((a.hora || '') < (b.hora || '') ? -1 : 1) * (orderAsc ? 1 : -1))
+    // ordenação por data+hora
+    arr.sort((a, b) => cmpDateTime(a, b, orderAsc))
     return arr
   }, [kits, filterDate, orderAsc, qNome, qNumero])
 
@@ -93,7 +102,6 @@ export default function Salgados() {
       <TopBar>
         <LeftGroup />
         <RightGroup>
-          {/* Buscar por nome */}
           <label style={{ display: 'grid', gap: 6 }}>
             <Label>Buscar por nome</Label>
             <input
@@ -104,7 +112,6 @@ export default function Salgados() {
             />
           </label>
 
-          {/* Número (ID) */}
           <label style={{ display: 'grid', gap: 6 }}>
             <Label>Número</Label>
             <input
@@ -118,7 +125,7 @@ export default function Salgados() {
           </label>
 
           <DateInput type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
-          <Button onClick={() => setOrderAsc(v => !v)}>Ordenar por hora {orderAsc ? '↑' : '↓'}</Button>
+          <Button onClick={() => setOrderAsc(v => !v)}>Ordenar {orderAsc ? '↑' : '↓'}</Button>
           <Button onClick={() => { setFilterDate(todayLocalISO()); setOrderAsc(true); setQNome(''); setQNumero('') }}>
             Limpar filtros
           </Button>

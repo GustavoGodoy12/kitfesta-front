@@ -28,14 +28,23 @@ function matchesNome(kit: { nome?: string }, query: string) {
 function onlyDigits(s: string) {
   return (s || '').replace(/\D/g, '')
 }
+function cmpDateTime(a: Kit, b: Kit, asc: boolean) {
+  const da = a.dataEvento || '9999-12-31'
+  const db = b.dataEvento || '9999-12-31'
+  if (da !== db) return (da < db ? -1 : 1) * (asc ? 1 : -1)
+  const ta = a.hora || '99:99'
+  const tb = b.hora || '99:99'
+  if (ta === tb) return 0
+  return (ta < tb ? -1 : 1) * (asc ? 1 : -1)
+}
 
 export default function Doces() {
   const [filterDate, setFilterDate] = useState<string>(() => todayLocalISO())
   const [orderAsc, setOrderAsc] = useState<boolean>(true)
   const [refresh, setRefresh] = useState(0)
 
-  const [qNome, setQNome] = useState('')     // novo
-  const [qNumero, setQNumero] = useState('') // novo
+  const [qNome, setQNome] = useState('')
+  const [qNumero, setQNumero] = useState('')
 
   const [openInfo, setOpenInfo] = useState(false)
   const [selectedKit, setSelectedKit] = useState<Kit | null>(null)
@@ -64,7 +73,7 @@ export default function Doces() {
   const kitsWithDoces = useMemo(() => {
     let arr = (kits || []).filter(k => (k.doces?.length ?? 0) > 0)
 
-    // de hoje pra frente
+    // de hoje pra frente (ou da data escolhida pra frente)
     if (filterDate) arr = arr.filter(k => (k.dataEvento || '') >= filterDate)
 
     // número
@@ -78,8 +87,8 @@ export default function Doces() {
       arr = arr.filter(k => matchesNome({ nome: k.nome }, qNome))
     }
 
-    // ordenação
-    arr.sort((a, b) => ((a.hora || '') < (b.hora || '') ? -1 : 1) * (orderAsc ? 1 : -1))
+    // ordenação por data e hora (mais próximo → mais distante)
+    arr.sort((a, b) => cmpDateTime(a, b, orderAsc))
     return arr
   }, [kits, filterDate, orderAsc, qNome, qNumero])
 
@@ -116,7 +125,7 @@ export default function Doces() {
           </label>
 
           <DateInput type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
-          <Button onClick={() => setOrderAsc(v => !v)}>Ordenar por hora {orderAsc ? '↑' : '↓'}</Button>
+          <Button onClick={() => setOrderAsc(v => !v)}>Ordenar {orderAsc ? '↑' : '↓'}</Button>
           <Button onClick={() => { setFilterDate(todayLocalISO()); setOrderAsc(true); setQNome(''); setQNumero('') }}>
             Limpar filtros
           </Button>

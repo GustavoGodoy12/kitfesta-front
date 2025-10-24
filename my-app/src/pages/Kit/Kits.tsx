@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import {
   createKit,
@@ -73,8 +74,7 @@ function isoDateOnly(d: string | null | undefined) {
 /* ==================================================== */
 
 export default function Kits() {
-  
-
+  const navigate = useNavigate()
   const { doces: DOCES, salgados: SALGADOS, bolos: BOLOS } = useSabores()
 
   // ===== estado geral / filtros =====
@@ -84,6 +84,10 @@ export default function Kits() {
   // Busca (filtros simplificados)
   const [qNome, setQNome] = useState('')      // nome
   const [qNumero, setQNumero] = useState('')  // id (número)
+
+  // Filtro de data único
+  const todayISO = todayLocalISO()
+  const [dateSel, setDateSel] = useState<string>(todayISO) // mostra só hoje; limpar volta a "hoje em diante"
 
   // modal criar/editar
   const [openModal, setOpenModal] = useState(false)
@@ -129,7 +133,16 @@ export default function Kits() {
   const [loading, setLoading] = useState(false)
   const [loadErr, setLoadErr] = useState('')
 
-  const todayISO = todayLocalISO()
+  // Redireciona automaticamente para o Histórico poucos segundos após a meia-noite local
+  useEffect(() => {
+    const now = new Date()
+    const next = new Date(now)
+    next.setDate(now.getDate() + 1)
+    next.setHours(0, 0, 5, 0) // 00:00:05
+    const ms = Math.max(0, next.getTime() - now.getTime())
+    const timer = window.setTimeout(() => { navigate('/historico') }, ms)
+    return () => window.clearTimeout(timer)
+  }, [navigate])
 
   // carrega não entregues + “finalizados hoje” do backend
   useEffect(() => {
@@ -146,8 +159,8 @@ export default function Kits() {
 
         // finalizados hoje: entregue === 1 E atualizadoEm (data) === hoje
         const finals = (all || []).filter(k =>
-          Number(k.entregue) === 1 &&
-          isoDateOnly(k.atualizadoEm) === todayISO
+          Number((k as any).entregue) === 1 &&
+          isoDateOnly((k as any).atualizadoEm) === todayISO
         )
         setDoneToday(finals)
       } catch (e: any) {
@@ -157,7 +170,7 @@ export default function Kits() {
       }
     })()
     return () => { alive = false }
-  }, [refresh])
+  }, [refresh, todayISO])
 
   // ===== Helpers de atraso =====
   function isSameDay(d?: string, isoDay?: string) {
@@ -182,19 +195,31 @@ export default function Kits() {
     return { totalHoje: hoje.length, atrasadosHoje: atras.length }
   }, [kitsRaw])
 
-  // ===== Busca (nome, número) + ordenação =====
+  // ===== Busca (nome, número) + filtro de data único + ordenação =====
   const kitsFilteredSorted = useMemo(() => {
     let arr = [...kitsRaw]
 
+    // número (id)
     const numQuery = onlyDigits(qNumero)
     if (numQuery.length > 0) {
       arr = arr.filter(k => String(k.id).includes(numQuery))
     }
 
+    // nome
     if (qNome.trim()) {
       arr = arr.filter(k => matchesNome({ nome: k.nome }, qNome))
     }
 
+    // data:
+    // - se houver uma data selecionada, filtra APENAS aquele dia
+    // - se estiver vazio, mostra de HOJE em diante
+    if (dateSel && dateSel.trim() !== '') {
+      arr = arr.filter(k => (k.dataEvento || '') === dateSel)
+    } else {
+      arr = arr.filter(k => (k.dataEvento || '') >= todayISO)
+    }
+
+    // ordenar por hora
     arr.sort((a, b) => {
       const ha = a.hora || ''
       const hb = b.hora || ''
@@ -203,12 +228,11 @@ export default function Kits() {
       return orderAsc ? cmp : -cmp
     })
     return arr
-  }, [kitsRaw, qNome, qNumero, orderAsc])
+  }, [kitsRaw, qNome, qNumero, orderAsc, dateSel, todayISO])
 
   // mesma busca aplicada à seção “finalizados hoje”
   const doneTodayFiltered = useMemo(() => {
     let arr = [...doneToday]
-
     const numQuery = onlyDigits(qNumero)
     if (numQuery.length > 0) {
       arr = arr.filter(k => String(k.id).includes(numQuery))
@@ -351,7 +375,7 @@ export default function Kits() {
         </div>
       )}
 
-      {/* ===== BARRA DE BUSCA ===== */}
+      {/* ===== BARRA DE BUSCA / FILTROS ===== */}
       <TopBar>
         <LeftGroup>
           <Button onClick={openCreate}>+ Adicionar</Button>
@@ -380,8 +404,27 @@ export default function Kits() {
             />
           </Field>
 
+          <Field>
+            <Label>Data</Label>
+            <Input
+              type="date"
+              value={dateSel}
+              onChange={e => setDateSel(e.target.value)}
+              style={{ width: 160 }}
+            />
+          </Field>
+
           <Button onClick={() => setOrderAsc(v => !v)}>
             Ordenar por hora {orderAsc ? '↑' : '↓'}
+          </Button>
+
+          <Button onClick={() => {
+            setQNome('')
+            setQNumero('')
+            setDateSel('')      // limpar volta a “hoje em diante” automaticamente
+            setOrderAsc(true)
+          }}>
+            Limpar filtros
           </Button>
         </RightGroup>
       </TopBar>
@@ -414,9 +457,9 @@ export default function Kits() {
                   <Button
                     onClick={async (e) => {
                       e.stopPropagation()
-                      await setEntregue(k.id, true) // marca no backend
+                      await setEntregue(k.id, true)
                       setSuccessMsg(`${actionLabel} marcado com sucesso!`)
-                      setRefresh(x => x + 1) // recarrega listas
+                      setRefresh(x => x + 1)
                       window.setTimeout(() => setSuccessMsg(''), 2500)
                     }}
                   >
@@ -429,7 +472,7 @@ export default function Kits() {
         </GridCards>
       )}
 
-      {/* ===== SEÇÃO: FINALIZADOS HOJE (agora embaixo) ===== */}
+      {/* ===== SEÇÃO: FINALIZADOS HOJE (embaixo) ===== */}
       {doneTodayFiltered.length > 0 && (
         <>
           <Divider />
