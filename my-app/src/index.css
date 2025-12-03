@@ -1,6 +1,6 @@
 :root {
   /* Cores (tema claro) */
-  --bg: #ffffff;          /* fundo do site */
+  --bg: #f5f5f7;          /* fundo do site - CINZA */
   --text: #111827;        /* quase preto */
   --muted: #6b7280;       /* cinza para textos secundários */
   --orange: #ff6a00;      /* laranja principal */
@@ -9,14 +9,6 @@
   --surface: #ffffff;     /* cartões/áreas elevadas */
   --surface-2: #f9fafb;   /* hover leve / preenchimentos */
   --border: #e5e7eb;      /* cinza claro para bordas */
-
-  /* Dimensões */
-  --sidebar-w: 260px;
-  --sidebar-w-sm: 72px;
-
-  /* Espaçamentos padrão do layout */
-  --page-pad-x: clamp(16px, 4vw, 40px);
-  --page-pad-y: 24px;
 
   color-scheme: light;
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -28,8 +20,15 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-* { box-sizing: border-box; }
-html, body, #root { height: 100%; }
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
 
 body {
   margin: 0;
@@ -40,8 +39,15 @@ body {
 }
 
 /* Links no tema laranja */
-a { color: var(--orange); text-decoration: none; font-weight: 500; }
-a:hover { color: var(--orange-600); }
+a {
+  color: var(--orange);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+a:hover {
+  color: var(--orange-600);
+}
 
 /* Botões base */
 button {
@@ -54,17 +60,58 @@ button {
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
-  transition: background .2s ease, border-color .2s ease, color .2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
-button:hover { background: var(--surface-2); }
-button:focus, button:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+
+button:hover {
+  background: var(--surface-2);
+}
+
+button:focus,
+button:focus-visible {
+  outline: 3px solid var(--orange);
+  outline-offset: 2px;
+}
 
 /* Utilitários do template Vite (opcionais) */
-.logo { height: 6em; padding: 1.5em; will-change: filter; transition: filter 300ms; }
-.logo:hover { filter: drop-shadow(0 0 2em rgba(255,106,0,.35)); }
-@keyframes logo-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo { animation: logo-spin infinite 20s linear; }
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
 }
-.card { padding: 2em; }
-.read-the-docs { color: var(--muted); }
+
+.logo:hover {
+  filter: drop-shadow(0 0 2em rgba(255, 106, 0, 0.35));
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: var(--muted);
+}
+
+body,
+#root,
+main {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
