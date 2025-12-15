@@ -10,7 +10,7 @@ export default defineConfig({
       // Front chama /api/pedidos
       // Vite encaminha para http://localhost:4055/pedidos
       '/api': {
-        target: 'http://52.201.240.172:4055/api',
+        target: 'https://kitfestajanines.com.br/api',
         changeOrigin: true,
         secure: false,
         rewrite: path => path.replace(/^\/api/, ''),

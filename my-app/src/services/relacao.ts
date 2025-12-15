@@ -32,7 +32,7 @@ export type Pedido = {
 
 const API_BASE_URL =
   (typeof process !== 'undefined' && (process as any).env?.NEXT_PUBLIC_API_URL) ||
-  'http://52.201.240.172:4055'
+  'https://kitfestajanines.com.br'
 
 function toStr(v: unknown): string {
   if (v == null) return ''
