@@ -7,8 +7,7 @@ export default defineConfig({
 
   server: {
     proxy: {
-      // Front chama /api/pedidos
-      // Vite encaminha para http://localhost:4055/pedidos
+
       '/api': {
         target: 'https://kitfestajanines.com.br/api',
         changeOrigin: true,
