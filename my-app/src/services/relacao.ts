@@ -32,7 +32,7 @@ export type Pedido = {
 
 const API_BASE_URL =
   (typeof process !== 'undefined' && (process as any).env?.NEXT_PUBLIC_API_URL) ||
-  'https://kitfestajanines.com.br'
+  'https://kitfestajanines.com.br/api'
 
 function toStr(v: unknown): string {
   if (v == null) return ''

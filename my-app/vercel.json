@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://kitfestajanines.com.br/:path*"
+      "destination": "https://kitfestajanines.com.br/api/:path*"
     }
   ]
 }
