@@ -10,7 +10,7 @@ export default defineConfig({
       // Front chama /api/pedidos
       // Vite encaminha para http://localhost:3022/pedidos
       '/api': {
-        target: 'http://localhost:3022',
+        target: 'http://52.201.240.172:3022/api',
         changeOrigin: true,
         secure: false,
         rewrite: path => path.replace(/^\/api/, ''),
