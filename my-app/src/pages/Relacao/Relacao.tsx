@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, useRef } from 'react'
 import Layout from '../../layout/Layout'
 import {
   Wrapper,
@@ -23,37 +23,12 @@ import {
   RelacaoCellNumero,
 } from './Relacao.styled'
 
+import { fetchPedidosByData, type Pedido } from '../../services/relacao'
+
 const STORAGE_KEY = 'sisteminha-pedidos'
 
 type CategoryKey = 'doces' | 'salgados' | 'bolos'
-
-type ItemLine = {
-  descricao: string
-  quantidade: string
-  unidade: string
-}
-
-type ItemsByCategory = Record<CategoryKey, ItemLine[]>
-
-type FormData = {
-  pedidoId?: string
-  responsavel: string
-  cliente: string
-  revendedor: string
-  telefone: string
-  retirada: string
-  data: string
-  horario: string
-  enderecoEntrega: string
-  precoTotal: string
-  tipoPagamento?: string
-}
-
-type Pedido = {
-  id: number
-  formData: FormData
-  items: ItemsByCategory
-}
+type ItemsByCategory = Record<CategoryKey, { descricao: string; quantidade: string; unidade: string }[]>
 
 // formata "2025-03-26" -> "26/03/2025"
 function formatDateToBR(dateStr?: string): string {
@@ -78,7 +53,7 @@ function getDayLabel(dateStr?: string) {
   return dias[idx] ?? ''
 }
 
-function loadPedidos(): Pedido[] {
+function loadPedidosLocal(): Pedido[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
@@ -93,7 +68,7 @@ function loadPedidos(): Pedido[] {
 function computeTotalCategory(items: ItemsByCategory | undefined, cat: CategoryKey) {
   if (!items) return 0
   return (items[cat] || []).reduce((sum, line) => {
-    const n = Number(line.quantidade.replace(',', '.'))
+    const n = Number(String(line.quantidade ?? '').replace(',', '.'))
     return sum + (Number.isNaN(n) ? 0 : n)
   }, 0)
 }
@@ -101,23 +76,52 @@ function computeTotalCategory(items: ItemsByCategory | undefined, cat: CategoryK
 export default function Relacao() {
   const [dataFiltro, setDataFiltro] = useState('')
   const [pedidos, setPedidos] = useState<Pedido[]>([])
+  const [loading, setLoading] = useState(false)
 
-  function gerarRelacao() {
-    const todos = loadPedidos()
-    const filtrados =
-      dataFiltro.trim() === ''
-        ? todos
-        : todos.filter(p => p.formData?.data === dataFiltro.trim())
-    setPedidos(filtrados)
+  const abortRef = useRef<AbortController | null>(null)
+
+  async function gerarRelacao() {
+    setLoading(true)
+
+    if (abortRef.current) abortRef.current.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    try {
+      // ✅ API (GET /pedidos?data=YYYY-MM-DD) — se dataFiltro vazio, busca tudo
+      const apiPedidos = await fetchPedidosByData(dataFiltro, { signal: controller.signal })
+      setPedidos(apiPedidos)
+      return
+    } catch (err) {
+      console.error('Falhou API, usando fallback localStorage:', err)
+
+      // fallback localStorage
+      const todos = loadPedidosLocal()
+      const filtrados =
+        dataFiltro.trim() === ''
+          ? todos
+          : todos.filter(p => p.formData?.data === dataFiltro.trim())
+
+      setPedidos(filtrados)
+
+      alert(
+        err instanceof Error
+          ? `API indisponível. Mostrando dados locais.\n\n${err.message}`
+          : 'API indisponível. Mostrando dados locais.',
+      )
+    } finally {
+      setLoading(false)
+    }
   }
 
-  function handleGerarClick() {
-    gerarRelacao()
+  async function handleGerarClick() {
+    await gerarRelacao()
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    gerarRelacao()
+    await gerarRelacao()
+
     setTimeout(() => {
       window.print()
     }, 100)
@@ -148,10 +152,12 @@ export default function Relacao() {
           </TopRows>
 
           <TopBottomRow>
-            <GenerateButton type="button" onClick={handleGerarClick}>
-              Gerar relação
+            <GenerateButton type="button" onClick={handleGerarClick} disabled={loading}>
+              {loading ? 'Gerando...' : 'Gerar relação'}
             </GenerateButton>
-            <PrintButton type="submit">Imprimir relação</PrintButton>
+            <PrintButton type="submit" disabled={loading}>
+              Imprimir relação
+            </PrintButton>
           </TopBottomRow>
         </TopPanel>
 
@@ -161,7 +167,7 @@ export default function Relacao() {
             <RelacaoTable>
               <RelacaoThead>
                 <tr>
-                  <RelacaoHeaderCell>PEDIDO</RelacaoHeaderCell>
+                  <RelacaoHeaderCell>DESTINO</RelacaoHeaderCell>
                   <RelacaoHeaderCell>DATA</RelacaoHeaderCell>
                   <RelacaoHeaderNumero>NÚMERO</RelacaoHeaderNumero>
                   <RelacaoHeaderCell>TELEFONE</RelacaoHeaderCell>
@@ -176,6 +182,7 @@ export default function Relacao() {
                   <RelacaoHeaderCell>BOLO</RelacaoHeaderCell>
                 </tr>
               </RelacaoThead>
+
               <RelacaoTbody>
                 {pedidos.map(p => {
                   const id = p.id
@@ -189,15 +196,15 @@ export default function Relacao() {
                     revendedor,
                     tipoPagamento,
                     retirada,
-                  } = p.formData || {}
+                  } = p.formData || ({} as any)
 
-                  const totalDoces = computeTotalCategory(p.items, 'doces')
-                  const totalSalgados = computeTotalCategory(p.items, 'salgados')
-                  const totalBolos = computeTotalCategory(p.items, 'bolos')
+                  const totalDoces = computeTotalCategory(p.items as any, 'doces')
+                  const totalSalgados = computeTotalCategory(p.items as any, 'salgados')
+                  const totalBolos = computeTotalCategory(p.items as any, 'bolos')
 
                   return (
                     <RelacaoRow key={id}>
-                      <RelacaoCell>{id}</RelacaoCell>
+                      <RelacaoCell>{cliente || ''}</RelacaoCell>
                       <RelacaoCell>{formatDateToBR(data) || ''}</RelacaoCell>
                       <RelacaoCellNumero>{pedidoId || id}</RelacaoCellNumero>
                       <RelacaoCell>{telefone || ''}</RelacaoCell>

@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useState, type FormEvent, type KeyboardEvent, useRef } from 'react'
 import Layout from '../../layout/Layout'
 import {
   Wrapper,
@@ -34,49 +34,22 @@ import {
   PrintStyles,
 } from './Imprimir.styled'
 
+import { fetchPedidoById, type Pedido } from '../../services/imprimir'
+
 const STORAGE_KEY = 'sisteminha-pedidos'
 const INITIAL_LINES = 10
 
 type CategoryKey = 'doces' | 'salgados' | 'bolos'
-
-type ItemLine = {
-  descricao: string
-  quantidade: string
-  unidade: string
-}
-
-type ItemsByCategory = Record<CategoryKey, ItemLine[]>
-type CategoryComments = Record<CategoryKey, string>
-
-type FormData = {
-  pedidoId?: string
-  responsavel: string
-  cliente: string
-  revendedor: string
-  telefone: string
-  retirada: string
-  data: string
-  horario: string
-  enderecoEntrega: string
-  precoTotal: string
-}
-
-type Pedido = {
-  id: number
-  formData: FormData
-  items: ItemsByCategory
-  comments?: CategoryComments
-}
+type ItemsByCategory = Record<CategoryKey, { descricao: string; quantidade: string; unidade: string }[]>
 
 function computeTotal(category: CategoryKey, items?: ItemsByCategory) {
   if (!items) return 0
   return items[category].reduce((sum, line) => {
-    const n = Number(line.quantidade.replace(',', '.'))
+    const n = Number(String(line.quantidade ?? '').replace(',', '.'))
     return sum + (Number.isNaN(n) ? 0 : n)
   }, 0)
 }
 
-// formata "2025-03-26" -> "26/03/2025"
 function formatDateToBR(dateStr?: string): string {
   if (!dateStr) return ''
   if (dateStr.includes('/')) return dateStr
@@ -85,7 +58,6 @@ function formatDateToBR(dateStr?: string): string {
   return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`
 }
 
-// evita o bug de fuso horário criando Date com (ano, mes-1, dia)
 function getDayLabel(dateStr?: string) {
   if (!dateStr) return 'SÁBADO'
   const [yearStr, monthStr, dayStr] = dateStr.split('-')
@@ -97,6 +69,10 @@ function getDayLabel(dateStr?: string) {
   const dias = ['DOMINGO', 'SEGUNDA', 'TERÇA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÁBADO']
   const idx = d.getDay()
   return dias[idx] ?? 'SÁBADO'
+}
+
+function sanitizePedidoNumero(raw: string) {
+  return raw.replace(/\D/g, '')
 }
 
 function findPedidoByNumero(numero: string): Pedido | null {
@@ -115,7 +91,7 @@ function findPedidoByNumero(numero: string): Pedido | null {
 
   const encontrado =
     pedidos.find(p => Number(p.id) === idNumber) ||
-    pedidos.find(p => Number(p.formData?.pedidoId) === idNumber)
+    pedidos.find(p => Number((p as any).formData?.pedidoId) === idNumber)
 
   return encontrado || null
 }
@@ -123,51 +99,87 @@ function findPedidoByNumero(numero: string): Pedido | null {
 export default function Imprimir() {
   const [pedidoNumero, setPedidoNumero] = useState('')
   const [pedido, setPedido] = useState<Pedido | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  function carregarPedido() {
-    if (!pedidoNumero) {
+  const abortRef = useRef<AbortController | null>(null)
+
+  async function carregarPedido(): Promise<Pedido | null> {
+    const numero = sanitizePedidoNumero(pedidoNumero)
+    if (numero !== pedidoNumero) setPedidoNumero(numero)
+
+    if (!numero) {
       alert('Informe o número do pedido para buscar.')
-      return
+      return null
     }
 
-    const encontrado = findPedidoByNumero(pedidoNumero)
+    setLoading(true)
 
-    if (!encontrado) {
-      alert(`Pedido ${pedidoNumero} não encontrado no mock.`)
+    if (abortRef.current) abortRef.current.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    try {
+      // ✅ API primeiro
+      const apiPedido = await fetchPedidoById(numero, { signal: controller.signal })
+      if (apiPedido) {
+        setPedido(apiPedido)
+        return apiPedido
+      }
+
+      // fallback localStorage (404)
+      const local = findPedidoByNumero(numero)
+      if (local) {
+        setPedido(local)
+        return local
+      }
+
+      alert(`Pedido ${numero} não encontrado (API e mock).`)
       setPedido(null)
-      return
+      return null
+    } catch (err) {
+      // fallback localStorage (erro de rede/status)
+      const local = findPedidoByNumero(numero)
+      if (local) {
+        console.error('API indisponível. Usando fallback localStorage:', err)
+        setPedido(local)
+        return local
+      }
+
+      console.error('Falha ao buscar pedido:', err)
+      alert(
+        err instanceof Error
+          ? `Falha ao buscar pedido na API.\n\n${err.message}`
+          : 'Falha ao buscar pedido na API.',
+      )
+      setPedido(null)
+      return null
+    } finally {
+      setLoading(false)
     }
-
-    setPedido(encontrado)
   }
 
-  function handleBuscarClick() {
-    carregarPedido()
+  async function handleBuscarClick() {
+    await carregarPedido()
   }
 
-  function handleNumeroKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+  async function handleNumeroKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === ' ' || e.key === 'Spacebar' || e.key === 'Enter') {
       e.preventDefault()
-      carregarPedido()
+      await carregarPedido()
     }
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
 
-    if (!pedidoNumero) {
+    const numero = sanitizePedidoNumero(pedidoNumero)
+    if (!numero) {
       alert('Informe o número do pedido para imprimir.')
       return
     }
 
-    const encontrado = findPedidoByNumero(pedidoNumero)
-
-    if (!encontrado) {
-      alert(`Pedido ${pedidoNumero} não encontrado no mock.`)
-      return
-    }
-
-    setPedido(encontrado)
+    const encontrado = await carregarPedido()
+    if (!encontrado) return
 
     setTimeout(() => {
       window.print()
@@ -207,7 +219,9 @@ export default function Imprimir() {
                 <FieldLabel>Número do pedido</FieldLabel>
                 <FieldInput
                   value={pedidoNumero}
-                  onChange={e => setPedidoNumero(e.target.value)}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  onChange={e => setPedidoNumero(sanitizePedidoNumero(e.target.value))}
                   onKeyDown={handleNumeroKeyDown}
                 />
               </div>
@@ -215,10 +229,12 @@ export default function Imprimir() {
           </TopRows>
 
           <TopBottomRow>
-            <SearchButton type="button" onClick={handleBuscarClick}>
-              Buscar
+            <SearchButton type="button" onClick={handleBuscarClick} disabled={loading}>
+              {loading ? 'Buscando...' : 'Buscar'}
             </SearchButton>
-            <PrintButton type="submit">Imprimir</PrintButton>
+            <PrintButton type="submit" disabled={loading}>
+              Imprimir
+            </PrintButton>
           </TopBottomRow>
         </TopPanel>
 
@@ -279,6 +295,11 @@ export default function Imprimir() {
                       <MetaLabel>Telefone</MetaLabel>
                       <MetaValue $variant="green">{telefone}</MetaValue>
                     </MetaRow>
+
+                    <MetaRow>
+                      <MetaLabel>Total</MetaLabel>
+                      <MetaValue>{computeTotal(cat.key, pedido?.items as any)}</MetaValue>
+                    </MetaRow>
                   </CategoryMeta>
 
                   <CategoryBodyPrint>
@@ -286,9 +307,7 @@ export default function Imprimir() {
                       <ItemsColumn>
                         {firstColumnItems.map((line, index) => (
                           <ItemRow key={index} $twoColumns={twoColumns}>
-                            <ItemText $twoColumns={twoColumns}>
-                              {line.descricao}
-                            </ItemText>
+                            <ItemText $twoColumns={twoColumns}>{line.descricao}</ItemText>
                             <ItemQtyText $twoColumns={twoColumns}>
                               {line.quantidade}
                             </ItemQtyText>

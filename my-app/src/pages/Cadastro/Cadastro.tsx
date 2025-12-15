@@ -1,7 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import Layout from '../../layout/Layout'
 import CadastroToast from '../../components/CadastroToast/CadastroToast'
+import {
+  buildPedidoPayload,
+  createPedido,
+  fetchUltimoPedidoId,
+} from '../../services/cadastro'
 import {
   Wrapper,
   FormPanel,
@@ -69,7 +74,6 @@ type Pedido = {
   comments: CategoryComments
 }
 
-// 10 itens por coluna; acima disso, quebra em duas colunas
 const INITIAL_LINES = 10
 
 const initialFormData: FormData = {
@@ -104,7 +108,6 @@ const makeInitialComments = (): CategoryComments => ({
   bolos: '',
 })
 
-// DOCES – opções do print
 const DOCES_OPCOES = [
   'BRIGADEIRO',
   'BEIJINHO',
@@ -126,7 +129,6 @@ const DOCES_OPCOES = [
   'OUTROS',
 ]
 
-// SALGADOS – opções das duas primeiras imagens
 const SALGADOS_OPCOES = [
   'COXINHA DE FRANGO',
   'BOLINHA DE QUEIJO',
@@ -145,7 +147,6 @@ const SALGADOS_OPCOES = [
   'FOLHADO (PALMITO)',
 ]
 
-// BOLOS – opções da última imagem
 const BOLOS_OPCOES = [
   'FLORESTA NEGRA',
   'MORANGO',
@@ -164,49 +165,37 @@ function formatTelefone(raw: string): string {
 
   if (digits.length === 0) return ''
 
-  if (digits.length <= 2) {
-    return `(${digits}`
-  }
-
-  if (digits.length <= 6) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
-  }
-
-  if (digits.length <= 10) {
-    // fixo (10 dígitos)
+  if (digits.length <= 2) return `(${digits}`
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+  if (digits.length <= 10)
     return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
-  }
-
-  // celular (11 dígitos)
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
 }
 
 function formatPrecoTotal(raw: string): string {
   const digits = raw.replace(/\D/g, '')
-
   if (!digits) return ''
 
   const num = parseInt(digits, 10)
-
   const intPart = Math.floor(num / 100).toString()
   const decPart = (num % 100).toString().padStart(2, '0')
-
   const intWithSep = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-
   return `R$ ${intWithSep},${decPart}`
 }
 
-// formata "2025-03-26" -> "26/03/2025"
+// ✅ quantidade: só números (permite vazio)
+function sanitizeQuantidade(raw: string): string {
+  return raw.replace(/\D/g, '')
+}
+
 function formatDateToBR(dateStr?: string): string {
   if (!dateStr) return ''
-  // se já estiver com /, só retorna
   if (dateStr.includes('/')) return dateStr
   const [year, month, day] = dateStr.split('-')
   if (!year || !month || !day) return dateStr
   return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`
 }
 
-// evita o bug de fuso horário criando Date com (ano, mes-1, dia)
 function getDayLabelFromISO(dateStr?: string): string {
   if (!dateStr) return 'SÁBADO'
   const [yearStr, monthStr, dayStr] = dateStr.split('-')
@@ -216,11 +205,11 @@ function getDayLabelFromISO(dateStr?: string): string {
   if (!year || !month || !day) return 'SÁBADO'
   const d = new Date(year, month - 1, day)
   const dias = ['DOMINGO', 'SEGUNDA', 'TERÇA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÁBADO']
-  const idx = d.getDay()
-  return dias[idx] ?? 'SÁBADO'
+  return dias[d.getDay()] ?? 'SÁBADO'
 }
 
-function getInitialNextId(): number {
+// fallback local (só se API falhar)
+function getInitialNextIdLocal(): number {
   if (typeof window === 'undefined') return 1
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -239,68 +228,90 @@ export default function Cadastro() {
   const [formData, setFormData] = useState<FormData>(initialFormData)
   const [items, setItems] = useState<ItemsByCategory>(makeInitialItems)
   const [comments, setComments] = useState<CategoryComments>(makeInitialComments)
-  const [nextId, setNextId] = useState<number>(getInitialNextId)
 
-  // estado do toast
+  // ✅ começa “sem id”, e só preenche quando a API responder (ou fallback)
+  const [nextId, setNextId] = useState<number>(0)
+  const [idReady, setIdReady] = useState(false)
+
   const [toastOpen, setToastOpen] = useState(false)
-  const [ultimoPedido, setUltimoPedido] = useState<{
-    id?: number | string
-    cliente?: string
-  }>({})
+  const [ultimoPedido, setUltimoPedido] = useState<{ id?: number | string; cliente?: string }>({})
+
+  // ✅ pega o último ID do BANCO e define o próximo
+  useEffect(() => {
+    let alive = true
+
+    async function loadNextId() {
+      try {
+        const ultimoId = await fetchUltimoPedidoId() // ex: 9
+        const apiNext = (Number(ultimoId) || 0) + 1 // => 10
+
+        if (!alive) return
+        setNextId(apiNext)
+        setIdReady(true)
+      } catch (err) {
+        console.error('Não conseguiu buscar ultimo_id na API. Usando localStorage.', err)
+        const localNext = getInitialNextIdLocal()
+
+        if (!alive) return
+        setNextId(localNext)
+        setIdReady(true)
+      }
+    }
+
+    loadNextId()
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  // ✅ deixa o número aparecendo automaticamente antes de digitar
+  useEffect(() => {
+    if (!idReady) return
+    if (!nextId || nextId <= 0) return
+
+    setFormData(prev => {
+      if (prev.pedidoId) return prev
+      return { ...prev, pedidoId: String(nextId) }
+    })
+  }, [idReady, nextId])
 
   function handleFormChange(e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = e.target
     let newValue = value
 
-    if (name === 'telefone') {
-      newValue = formatTelefone(value)
-    }
-
-    if (name === 'precoTotal') {
-      newValue = formatPrecoTotal(value)
-    }
+    if (name === 'telefone') newValue = formatTelefone(value)
+    if (name === 'precoTotal') newValue = formatPrecoTotal(value)
 
     setFormData(prev => {
       const updated: FormData = { ...prev, [name]: newValue }
-
-      // se ainda não tem pedidoId (novo pedido), ao digitar qualquer campo
-      // já preenche com o próximo ID
-      if (!prev.pedidoId) {
-        updated.pedidoId = String(nextId)
-      }
-
+      if (!prev.pedidoId && nextId > 0) updated.pedidoId = String(nextId)
       return updated
     })
   }
 
-  function handleItemChange(
-    category: CategoryKey,
-    index: number,
-    field: keyof ItemLine,
-    value: string,
-  ) {
+  function handleItemChange(category: CategoryKey, index: number, field: keyof ItemLine, value: string) {
+    const nextValue = field === 'quantidade' ? sanitizeQuantidade(value) : value
+
     setItems(prev => {
       const copy = { ...prev }
       const lines = [...copy[category]]
-      lines[index] = { ...lines[index], [field]: value }
+      lines[index] = { ...lines[index], [field]: nextValue }
       copy[category] = lines
       return copy
     })
 
-    // se é um novo pedido (sem ID ainda) e começou a digitar itens,
-    // também garante que o pedidoId apareça
     setFormData(prev => {
       if (prev.pedidoId) return prev
+      if (nextId <= 0) return prev
       return { ...prev, pedidoId: String(nextId) }
     })
   }
 
   function handleCommentChange(category: CategoryKey, value: string) {
     setComments(prev => ({ ...prev, [category]: value }))
-
-    // idem: se começou pelo comentário, já mostra o próximo ID
     setFormData(prev => {
       if (prev.pedidoId) return prev
+      if (nextId <= 0) return prev
       return { ...prev, pedidoId: String(nextId) }
     })
   }
@@ -309,79 +320,97 @@ export default function Cadastro() {
     const defaultUnit = category === 'bolos' ? 'KG' : 'UN'
     setItems(prev => {
       const copy = { ...prev }
-      copy[category] = [
-        ...copy[category],
-        { descricao: '', quantidade: '', unidade: defaultUnit },
-      ]
+      copy[category] = [...copy[category], { descricao: '', quantidade: '', unidade: defaultUnit }]
       return copy
     })
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
 
-    // validações obrigatórias
     const errors: string[] = []
-
-    if (!formData.data) {
-      errors.push('Data é obrigatória.')
-    }
-
-    if (!formData.horario) {
-      errors.push('Horário é obrigatório.')
-    }
-
+    if (!formData.data) errors.push('Data é obrigatória.')
+    if (!formData.horario) errors.push('Horário é obrigatório.')
     if (formData.retirada === 'ENTREGA' && !formData.enderecoEntrega.trim()) {
       errors.push('Endereço é obrigatório para entrega.')
     }
-
     if (errors.length > 0) {
       alert(errors.join('\n'))
       return
     }
 
-    let pedidos: Pedido[] = []
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) {
-        pedidos = JSON.parse(raw)
-      }
-    } catch {
-      pedidos = []
-    }
-
     const currentId =
-      formData.pedidoId && Number(formData.pedidoId) > 0
-        ? Number(formData.pedidoId)
-        : nextId
+      formData.pedidoId && Number(formData.pedidoId) > 0 ? Number(formData.pedidoId) : nextId || 1
 
-    const pedidoFormData: FormData = {
-      ...formData,
-      pedidoId: String(currentId),
-    }
-
-    const novoPedido: Pedido = {
-      id: currentId,
-      formData: pedidoFormData,
+    const payload = buildPedidoPayload(
+      {
+        responsavel: formData.responsavel,
+        cliente: formData.cliente,
+        revendedor: formData.revendedor,
+        telefone: formData.telefone,
+        retirada: formData.retirada,
+        data: formData.data,
+        horario: formData.horario,
+        enderecoEntrega: formData.enderecoEntrega,
+        precoTotal: formData.precoTotal,
+      },
       items,
       comments,
+    )
+
+    try {
+      const resp = await createPedido(payload)
+      console.log('Pedido enviado (API):', resp)
+
+      // sua API: { success, pedidoId, message }
+      const idApi = (resp as any)?.pedidoId ?? currentId
+
+      setUltimoPedido({ id: idApi, cliente: formData.cliente })
+      setToastOpen(true)
+
+      const proxId = Number(idApi) + 1
+      setNextId(Number.isFinite(proxId) ? proxId : currentId + 1)
+
+      // reseta e já vai aparecer o próximo automaticamente pelo effect do nextId
+      setFormData(initialFormData)
+      setItems(makeInitialItems())
+      setComments(makeInitialComments())
+    } catch (err) {
+      console.error('Falhou API, salvando em localStorage (fallback):', err)
+
+      let pedidos: Pedido[] = []
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (raw) pedidos = JSON.parse(raw)
+      } catch {
+        pedidos = []
+      }
+
+      const pedidoFormData: FormData = { ...formData, pedidoId: String(currentId) }
+
+      const novoPedido: Pedido = {
+        id: currentId,
+        formData: pedidoFormData,
+        items,
+        comments,
+      }
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([...pedidos, novoPedido]))
+
+      setUltimoPedido({ id: currentId, cliente: formData.cliente })
+      setToastOpen(true)
+
+      setNextId(currentId + 1)
+      setFormData(initialFormData)
+      setItems(makeInitialItems())
+      setComments(makeInitialComments())
+
+      alert(
+        err instanceof Error
+          ? `API indisponível. Pedido salvo localmente.\n\n${err.message}`
+          : 'API indisponível. Pedido salvo localmente.',
+      )
     }
-
-    const atualizados = [...pedidos, novoPedido]
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(atualizados))
-
-    // abre o toast amigável
-    setUltimoPedido({ id: currentId, cliente: formData.cliente })
-    setToastOpen(true)
-
-    // prepara o próximo: limpa tudo e já deixa nextId = atual + 1
-    const proxId = currentId + 1
-    setNextId(proxId)
-    setFormData(initialFormData)
-    setItems(makeInitialItems())
-    setComments(makeInitialComments())
-
-    console.log('Cadastro enviado (mock)', novoPedido)
   }
 
   function computeTotal(category: CategoryKey) {
@@ -402,23 +431,20 @@ export default function Cadastro() {
   return (
     <Layout>
       <Wrapper onSubmit={handleSubmit}>
-        {/* TOPO – FORMULÁRIO (inputs à esquerda, botão à direita) */}
         <FormPanel>
           <FormRows>
-            {/* LINHA 1 */}
             <FormRow>
               <div>
                 <FieldLabel>Nº do pedido</FieldLabel>
+                {/* ✅ agora aparece automaticamente assim que a API responder */}
                 <PedidoIdBox>{formData.pedidoId || '---'}</PedidoIdBox>
               </div>
+
               <div>
                 <FieldLabel>Responsável</FieldLabel>
-                <FieldInput
-                  name="responsavel"
-                  value={formData.responsavel}
-                  onChange={handleFormChange}
-                />
+                <FieldInput name="responsavel" value={formData.responsavel} onChange={handleFormChange} />
               </div>
+
               <div>
                 <FieldLabel>Cliente</FieldLabel>
                 <FieldInput
@@ -435,71 +461,45 @@ export default function Cadastro() {
                   <option value="COFFEE" />
                 </datalist>
               </div>
+
               <div>
                 <FieldLabel>Revendedor</FieldLabel>
-                <FieldInput
-                  name="revendedor"
-                  value={formData.revendedor}
-                  onChange={handleFormChange}
-                />
+                <FieldInput name="revendedor" value={formData.revendedor} onChange={handleFormChange} />
               </div>
+
               <div>
                 <FieldLabel>Telefone</FieldLabel>
-                <FieldInput
-                  type="tel"
-                  name="telefone"
-                  value={formData.telefone}
-                  onChange={handleFormChange}
-                />
+                <FieldInput type="tel" name="telefone" value={formData.telefone} onChange={handleFormChange} />
               </div>
             </FormRow>
 
-            {/* LINHA 2 */}
             <FormRow>
               <div>
                 <FieldLabel>Data</FieldLabel>
-                <FieldInput
-                  type="date"
-                  name="data"
-                  value={formData.data}
-                  onChange={handleFormChange}
-                />
+                <FieldInput type="date" name="data" value={formData.data} onChange={handleFormChange} />
               </div>
+
               <div>
                 <FieldLabel>Horário</FieldLabel>
-                <FieldInput
-                  type="time"
-                  name="horario"
-                  value={formData.horario}
-                  onChange={handleFormChange}
-                />
+                <FieldInput type="time" name="horario" value={formData.horario} onChange={handleFormChange} />
               </div>
+
               <div>
                 <FieldLabel>Retirada / Entrega</FieldLabel>
-                <FieldSelect
-                  name="retirada"
-                  value={formData.retirada}
-                  onChange={handleFormChange}
-                >
+                <FieldSelect name="retirada" value={formData.retirada} onChange={handleFormChange}>
                   <option value="ENTREGA">ENTREGA</option>
                   <option value="RETIRADA">RETIRADA</option>
                 </FieldSelect>
               </div>
+
               <div>
                 <FieldLabel>Endereço</FieldLabel>
-                <FieldInput
-                  name="enderecoEntrega"
-                  value={formData.enderecoEntrega}
-                  onChange={handleFormChange}
-                />
+                <FieldInput name="enderecoEntrega" value={formData.enderecoEntrega} onChange={handleFormChange} />
               </div>
+
               <div>
                 <FieldLabel>Preço total</FieldLabel>
-                <FieldInput
-                  name="precoTotal"
-                  value={formData.precoTotal}
-                  onChange={handleFormChange}
-                />
+                <FieldInput name="precoTotal" value={formData.precoTotal} onChange={handleFormChange} />
               </div>
             </FormRow>
           </FormRows>
@@ -509,7 +509,6 @@ export default function Cadastro() {
           </FormBottomRow>
         </FormPanel>
 
-        {/* EMBAIXO – CARDS COM ITENS + COMENTÁRIOS */}
         <CardsSection>
           <CategoryGrid>
             {([
@@ -528,7 +527,6 @@ export default function Cadastro() {
                 <CategoryCard key={cat.key}>
                   <CategoryHeader>
                     <CategoryDay>{dayLabel}</CategoryDay>
-                    {/* ID do pedido no lugar do 761 */}
                     <CategoryNumber>{formData.pedidoId || '---'}</CategoryNumber>
                   </CategoryHeader>
 
@@ -567,21 +565,19 @@ export default function Cadastro() {
                               ? 'bolos-opcoes'
                               : undefined
                           }
-                          onChange={e =>
-                            handleItemChange(cat.key, index, 'descricao', e.target.value)
-                          }
+                          onChange={e => handleItemChange(cat.key, index, 'descricao', e.target.value)}
                         />
+
                         <ItemQtyInput
                           value={line.quantidade}
-                          onChange={e =>
-                            handleItemChange(cat.key, index, 'quantidade', e.target.value)
-                          }
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          onChange={e => handleItemChange(cat.key, index, 'quantidade', e.target.value)}
                         />
+
                         <ItemUnit
                           value={line.unidade}
-                          onChange={e =>
-                            handleItemChange(cat.key, index, 'unidade', e.target.value)
-                          }
+                          onChange={e => handleItemChange(cat.key, index, 'unidade', e.target.value)}
                         >
                           {isDoces && (
                             <>
@@ -610,11 +606,7 @@ export default function Cadastro() {
                   </CategoryBody>
 
                   <AddItemBar>
-                    <AddItemButton
-                      type="button"
-                      onClick={() => handleAddItem(cat.key)}
-                      aria-label={`Adicionar item em ${cat.title}`}
-                    >
+                    <AddItemButton type="button" onClick={() => handleAddItem(cat.key)} aria-label={`Adicionar item em ${cat.title}`}>
                       +
                     </AddItemButton>
                   </AddItemBar>
@@ -632,7 +624,6 @@ export default function Cadastro() {
             })}
           </CategoryGrid>
 
-          {/* datalists globais para os cards */}
           <datalist id="doces-opcoes">
             {DOCES_OPCOES.map(opcao => (
               <option key={opcao} value={opcao} />
@@ -653,7 +644,6 @@ export default function Cadastro() {
         </CardsSection>
       </Wrapper>
 
-      {/* Toast de confirmação de cadastro */}
       <CadastroToast
         open={toastOpen}
         pedidoId={ultimoPedido.id}

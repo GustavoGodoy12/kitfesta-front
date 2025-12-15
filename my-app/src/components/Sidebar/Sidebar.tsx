@@ -25,20 +25,13 @@ export default function Sidebar() {
           <span>RELAÇÃO</span>
         </NavItem>
 
-        <NavItem to="/resumo" className={({ isActive }) => (isActive ? 'active' : '')}>
-          <ItemIcon>📊</ItemIcon>
-          <span>RESUMO</span>
-        </NavItem>
+    
 
         <NavItem to="/consolidado" className={({ isActive }) => (isActive ? 'active' : '')}>
           <ItemIcon>📦</ItemIcon>
           <span>CONSOLIDADO</span>
         </NavItem>
 
-        <NavItem to="/comentarios" className={({ isActive }) => (isActive ? 'active' : '')}>
-          <ItemIcon>💬</ItemIcon>
-          <span>COMENTÁRIOS</span>
-        </NavItem>
       </Nav>
     </Wrapper>
   )

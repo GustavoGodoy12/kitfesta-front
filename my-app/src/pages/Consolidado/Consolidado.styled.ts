@@ -1,0 +1,23 @@
+// src/pages/Consolidado/Consolidado.styled.ts
+export {
+  Wrapper,
+  TopPanel,
+  TopRows,
+  TopRow,
+  FieldLabel,
+  FieldInput,
+  DayBadge,
+  TopBottomRow,
+  GenerateButton,
+  PrintButton,
+  TableSection,
+  TableWrapper,
+  RelacaoTable,
+  RelacaoThead,
+  RelacaoHeaderCell,
+  RelacaoHeaderNumero,
+  RelacaoTbody,
+  RelacaoRow,
+  RelacaoCell,
+  RelacaoCellNumero,
+} from '../Relacao/Relacao.styled'
