@@ -34,7 +34,7 @@ export type Pedido = {
 
 const API_BASE_URL =
   (typeof process !== 'undefined' && (process as any).env?.NEXT_PUBLIC_API_URL) ||
-  'http://52.201.240.172:3022/api'
+  'http://52.201.240.172:3022'
 
 function toStr(v: unknown): string {
   if (v == null) return ''
