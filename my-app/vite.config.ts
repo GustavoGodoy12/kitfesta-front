@@ -8,9 +8,9 @@ export default defineConfig({
   server: {
     proxy: {
       // Front chama /api/pedidos
-      // Vite encaminha para http://localhost:3022/pedidos
+      // Vite encaminha para http://localhost:4055/pedidos
       '/api': {
-        target: 'http://52.201.240.172:3022/api',
+        target: 'http://52.201.240.172:4055/api',
         changeOrigin: true,
         secure: false,
         rewrite: path => path.replace(/^\/api/, ''),
