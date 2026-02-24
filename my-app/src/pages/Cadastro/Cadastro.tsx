@@ -461,6 +461,8 @@ export default function Cadastro() {
                   <option value="REVENDEDOR" />
                   <option value="EXAL" />
                   <option value="COFFEE" />
+                  <option value="FUNCIONARIO" />
+                  <option value="VENDA INTERNA" />
                 </datalist>
               </div>
 
@@ -505,7 +507,7 @@ export default function Cadastro() {
               </div>
 
                         <div>
-  <FieldLabel>Tamanho</FieldLabel>
+  <FieldLabel>Tamanho Kit</FieldLabel>
   <FieldSelect name="tamanho" value={formData.tamanho} onChange={handleFormChange}>
     <option value="">-</option>
     <option value="10">10</option>

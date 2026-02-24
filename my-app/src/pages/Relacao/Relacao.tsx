@@ -1,28 +1,13 @@
 import { useState, type FormEvent, useRef } from 'react'
 import Layout from '../../layout/Layout'
 import {
-  Wrapper,
-  TopPanel,
-  TopRows,
-  TopRow,
-  FieldLabel,
-  FieldInput,
-  DayBadge,
-  TopBottomRow,
-  GenerateButton,
-  PrintButton,
-  TableSection,
-  TableWrapper,
-  RelacaoTable,
-  RelacaoThead,
-  RelacaoHeaderCell,
-  RelacaoHeaderNumero,
-  RelacaoTbody,
-  RelacaoRow,
-  RelacaoCell,
+  Wrapper, TopPanel, TopRows, TopRow, FieldLabel, FieldInput,
+  DayBadge, TopBottomRow, GenerateButton, PrintButton, TableSection,
+  TableWrapper, RelacaoTable, RelacaoThead, RelacaoHeaderCell,
+  RelacaoHeaderNumero, RelacaoTbody, RelacaoRow, RelacaoCell,
   RelacaoCellNumero,
 } from './Relacao.styled'
-
+import Popup, { type PopupItemData } from '../Consolidado/Popup/Popup'
 import { fetchPedidosByData, type Pedido } from '../../services/relacao'
 
 const STORAGE_KEY = 'sisteminha-pedidos'
@@ -41,13 +26,10 @@ function formatDateToBR(dateStr?: string): string {
 function getDayLabel(dateStr?: string) {
   if (!dateStr) return ''
   const [yearStr, monthStr, dayStr] = dateStr.split('-')
-  const year = Number(yearStr)
-  const month = Number(monthStr)
-  const day = Number(dayStr)
+  const year = Number(yearStr), month = Number(monthStr), day = Number(dayStr)
   if (!year || !month || !day) return ''
   const d = new Date(year, month - 1, day)
-  const dias = ['DOMINGO', 'SEGUNDA', 'TERÇA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÁBADO']
-  return dias[d.getDay()] ?? ''
+  return ['DOMINGO','SEGUNDA','TERÇA','QUARTA','QUINTA','SEXTA','SÁBADO'][d.getDay()] ?? ''
 }
 
 function loadPedidosLocal(): Pedido[] {
@@ -55,11 +37,8 @@ function loadPedidosLocal(): Pedido[] {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed as Pedido[]
-  } catch {
-    return []
-  }
+    return Array.isArray(parsed) ? parsed : []
+  } catch { return [] }
 }
 
 function computeTotalCategory(items: ItemsByCategory | undefined, cat: CategoryKey) {
@@ -74,13 +53,13 @@ export default function Relacao() {
   const [dataFiltro, setDataFiltro] = useState('')
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [loading, setLoading] = useState(false)
-  const [tipoPagamentoEdit, setTipoPagamentoEdit] = useState<Record<number, string>>({})
-
+  const [entregues, setEntregues] = useState<Record<number, boolean>>({})
+  const [popupPedidoId, setPopupPedidoId] = useState<number | null>(null)
+  const [popupTipoPag, setPopupTipoPag] = useState<string>('')
   const abortRef = useRef<AbortController | null>(null)
 
   async function gerarRelacao() {
     setLoading(true)
-
     if (abortRef.current) abortRef.current.abort()
     const controller = new AbortController()
     abortRef.current = controller
@@ -88,30 +67,61 @@ export default function Relacao() {
     try {
       const apiPedidos = await fetchPedidosByData(dataFiltro, { signal: controller.signal })
       setPedidos(apiPedidos)
-      return
+      // inicializa entregues com valores do banco
+      const init: Record<number, boolean> = {}
+      apiPedidos.forEach(p => { init[p.id] = p.formData?.entregue ?? false })
+      setEntregues(init)
     } catch (err) {
       console.error('Falhou API, usando fallback localStorage:', err)
-
       const todos = loadPedidosLocal()
-      const filtrados =
-        dataFiltro.trim() === ''
-          ? todos
-          : todos.filter(p => p.formData?.data === dataFiltro.trim())
-
+      const filtrados = dataFiltro.trim() === ''
+        ? todos
+        : todos.filter(p => p.formData?.data === dataFiltro.trim())
       setPedidos(filtrados)
-
-      alert(
-        err instanceof Error
-          ? `API indisponível. Mostrando dados locais.\n\n${err.message}`
-          : 'API indisponível. Mostrando dados locais.',
-      )
+      alert(err instanceof Error ? `API indisponível.\n\n${err.message}` : 'API indisponível.')
     } finally {
       setLoading(false)
     }
   }
 
-  async function handleGerarClick() {
-    await gerarRelacao()
+  async function handleToggleEntregue(pedidoId: number, value: boolean) {
+    setEntregues(prev => ({ ...prev, [pedidoId]: value }))
+    try {
+      await fetch(`/api/pedidos/${pedidoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formData: { entregue: value } }),
+      })
+    } catch (err) {
+      console.error('Erro ao salvar entregue:', err)
+      // reverte se falhar
+      setEntregues(prev => ({ ...prev, [pedidoId]: !value }))
+    }
+  }
+
+  function handleOpenPopupPagamento(pedidoId: number, tipoPagamentoAtual: string) {
+    setPopupPedidoId(pedidoId)
+    setPopupTipoPag(tipoPagamentoAtual)
+  }
+
+  async function handleSaveTipoPagamento(_itemId: number, data: PopupItemData) {
+    if (popupPedidoId === null) return
+    try {
+      await fetch(`/api/pedidos/${popupPedidoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formData: { tipo_pagamento: data.descricao } }),
+      })
+      setPedidos(prev =>
+        prev.map(p =>
+          p.id === popupPedidoId
+            ? { ...p, formData: { ...p.formData, tipoPagamento: data.descricao } }
+            : p,
+        ),
+      )
+    } catch (err) {
+      console.error('Erro ao salvar tipo pagamento:', err)
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -130,11 +140,7 @@ export default function Relacao() {
             <TopRow>
               <div>
                 <FieldLabel>Data</FieldLabel>
-                <FieldInput
-                  type="date"
-                  value={dataFiltro}
-                  onChange={e => setDataFiltro(e.target.value)}
-                />
+                <FieldInput type="date" value={dataFiltro} onChange={e => setDataFiltro(e.target.value)} />
               </div>
               <div>
                 <FieldLabel>Dia da semana</FieldLabel>
@@ -142,9 +148,8 @@ export default function Relacao() {
               </div>
             </TopRow>
           </TopRows>
-
           <TopBottomRow>
-            <GenerateButton type="button" onClick={handleGerarClick} disabled={loading}>
+            <GenerateButton type="button" onClick={gerarRelacao} disabled={loading}>
               {loading ? 'Gerando...' : 'Gerar relação'}
             </GenerateButton>
             <PrintButton type="submit" disabled={loading}>
@@ -163,7 +168,7 @@ export default function Relacao() {
                   <RelacaoHeaderNumero>NÚMERO</RelacaoHeaderNumero>
                   <RelacaoHeaderCell>TELEFONE</RelacaoHeaderCell>
                   <RelacaoHeaderCell>NOME CLIENTE</RelacaoHeaderCell>
-                  <RelacaoHeaderCell>HORÁRIO ENTREGA OU RETIRADA</RelacaoHeaderCell>
+                  <RelacaoHeaderCell>HORÁRIO</RelacaoHeaderCell>
                   <RelacaoHeaderCell>VALOR</RelacaoHeaderCell>
                   <RelacaoHeaderCell>REVENDEDOR</RelacaoHeaderCell>
                   <RelacaoHeaderCell>TIPO PAGAMENTO</RelacaoHeaderCell>
@@ -172,22 +177,17 @@ export default function Relacao() {
                   <RelacaoHeaderCell>DOCE</RelacaoHeaderCell>
                   <RelacaoHeaderCell>SALG</RelacaoHeaderCell>
                   <RelacaoHeaderCell>BOLO</RelacaoHeaderCell>
+                  <RelacaoHeaderCell>ENTREGUE</RelacaoHeaderCell>
                 </tr>
               </RelacaoThead>
 
               <RelacaoTbody>
                 {pedidos.map(p => {
                   const id = p.id
+                  const isEntregue = entregues[id] ?? false
                   const {
-                    pedidoId,
-                    data,
-                    horario,
-                    telefone,
-                    cliente,
-                    precoTotal,
-                    revendedor,
-                    tipoPagamento,
-                    retirada,
+                    pedidoId, data, horario, telefone, cliente,
+                    precoTotal, revendedor, tipoPagamento, retirada,
                   } = p.formData || ({} as any)
 
                   const totalDoces = computeTotalCategory(p.items as any, 'doces')
@@ -195,7 +195,10 @@ export default function Relacao() {
                   const totalBolos = computeTotalCategory(p.items as any, 'bolos')
 
                   return (
-                    <RelacaoRow key={id}>
+                    <RelacaoRow
+                      key={id}
+                      style={isEntregue ? { background: '#fef9c3' } : undefined}
+                    >
                       <RelacaoCell>{cliente || ''}</RelacaoCell>
                       <RelacaoCell>{formatDateToBR(data) || ''}</RelacaoCell>
                       <RelacaoCellNumero>{pedidoId || id}</RelacaoCellNumero>
@@ -205,28 +208,35 @@ export default function Relacao() {
                       <RelacaoCell>{precoTotal || ''}</RelacaoCell>
                       <RelacaoCell>{revendedor || ''}</RelacaoCell>
                       <RelacaoCell>
-                        <input
-                          value={tipoPagamentoEdit[id] ?? tipoPagamento ?? ''}
-                          onChange={e =>
-                            setTipoPagamentoEdit(prev => ({ ...prev, [id]: e.target.value }))
-                          }
-                          style={{
-                            border: 'none',
-                            background: 'transparent',
-                            fontWeight: 700,
-                            fontSize: '0.78rem',
-                            color: '#111827',
-                            width: '100%',
-                            outline: 'none',
-                            cursor: 'text',
-                          }}
-                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>
+                            {tipoPagamento || ''}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPopupPagamento(id, tipoPagamento || '')}
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              padding: '0 2px', fontSize: '0.75rem', lineHeight: 1,
+                            }}
+                          >
+                            ✏️
+                          </button>
+                        </div>
                       </RelacaoCell>
                       <RelacaoCell>{retirada || ''}</RelacaoCell>
                       <RelacaoCell>{p.formData?.tamanho || ''}</RelacaoCell>
                       <RelacaoCell>{totalDoces || ''}</RelacaoCell>
                       <RelacaoCell>{totalSalgados || ''}</RelacaoCell>
                       <RelacaoCell>{totalBolos || ''}</RelacaoCell>
+                      <RelacaoCell>
+                        <input
+                          type="checkbox"
+                          checked={isEntregue}
+                          onChange={e => handleToggleEntregue(id, e.target.checked)}
+                          style={{ cursor: 'pointer', width: 16, height: 16 }}
+                        />
+                      </RelacaoCell>
                     </RelacaoRow>
                   )
                 })}
@@ -235,6 +245,15 @@ export default function Relacao() {
           </TableWrapper>
         </TableSection>
       </Wrapper>
+
+      {popupPedidoId !== null && (
+        <Popup
+          itemId={popupPedidoId}
+          initialData={{ descricao: popupTipoPag, quantidade: '', unidade: '' }}
+          onClose={() => setPopupPedidoId(null)}
+          onSaved={handleSaveTipoPagamento}
+        />
+      )}
     </Layout>
   )
 }

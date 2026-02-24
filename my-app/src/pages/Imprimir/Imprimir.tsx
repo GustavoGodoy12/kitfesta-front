@@ -296,6 +296,8 @@ export default function Imprimir() {
                       <MetaValue $variant="green">{telefone}</MetaValue>
                     </MetaRow>
 
+                    <div style={{ borderTop: '1px solid #e5e7eb', margin: '12px 0' }} />
+
                     <MetaRow>
                       <MetaLabel>Total</MetaLabel>
                       <MetaValue>{computeTotal(cat.key, pedido?.items as any)}</MetaValue>
