@@ -39,9 +39,7 @@ export type ConsolidadoFilters = {
   pedidoId?: string // filtro por número
 }
 
-const API_BASE_URL =
-  (typeof process !== 'undefined' && (process as any).env?.NEXT_PUBLIC_API_URL) ||
-  'https://kitfestajanines.com.br/api'
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4055'
 
 function toStr(v: unknown): string {
   if (v == null) return ''
