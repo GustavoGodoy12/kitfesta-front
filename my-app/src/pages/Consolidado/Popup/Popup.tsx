@@ -5,8 +5,6 @@ import {
   CancelButton, SaveButton,
 } from './Popup.styled'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? ''
-
 export type PopupItemData = {
   descricao: string
   quantidade: string
@@ -34,7 +32,7 @@ export default function Popup({ itemId, initialData, onClose, onSaved }: Props) 
     setSaving(true)
     setError('')
     try {
-      const res = await fetch(`${API_BASE_URL}/api/itens/${itemId}`, {
+      const res = await fetch(`/api/itens/${itemId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),

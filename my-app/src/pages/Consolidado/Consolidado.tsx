@@ -10,13 +10,12 @@ import {
 import Popup, { type PopupItemData } from './Popup/Popup'
 import { fetchPedidosConsolidado, type Pedido } from '../../services/consolidado'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? ''
 const STORAGE_KEY = 'sisteminha-pedidos'
 
 type CategoryKey = 'doces' | 'salgados' | 'bolos'
 
 type ConsolidadoRow = {
-  itemId: number | undefined  // novo
+  itemId: number | undefined
   pedidoId: number
   pedido: string
   data: string
@@ -128,7 +127,7 @@ export default function Consolidado() {
         for (const line of linhas) {
           out.push({
             ...base,
-            itemId: line?.id,   // novo
+            itemId: line?.id,
             categoria: cat,
             descricao: String(line?.descricao ?? ''),
             quantidade: String(line?.quantidade ?? ''),
@@ -174,9 +173,9 @@ export default function Consolidado() {
 
   async function handleDeleteItem(itemId: number | undefined) {
     if (!itemId) return alert('Item sem ID — não é possível excluir.')
-    if (!confirm(`Excluir este item? Esta ação não pode ser desfeita.`)) return
+    if (!confirm('Excluir este item? Esta ação não pode ser desfeita.')) return
     try {
-      const res = await fetch(`${API_BASE_URL}/api/itens/${itemId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/itens/${itemId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error(`Erro ${res.status}`)
       setRows(prev => prev.filter(r => r.itemId !== itemId))
     } catch (err) {
