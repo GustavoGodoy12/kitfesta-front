@@ -17,7 +17,13 @@ export const TopPanel = styled.section`
   border-radius: 10px;
   padding: 10px 12px;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
-  display: inline-flex;
+
+  /* ✅ AJUSTE: evita estourar a largura e cortar o botão na direita */
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  flex-wrap: wrap;
+
   flex-direction: row;
   gap: 12px;
   align-items: stretch;
@@ -36,7 +42,10 @@ export const TopRows = styled.div`
 
 export const TopRow = styled.div`
   display: flex;
-  flex-wrap: nowrap;
+
+  /* ✅ AJUSTE: antes era nowrap e empurrava o botão pra fora */
+  flex-wrap: wrap;
+
   gap: 10px;
 
   > div {

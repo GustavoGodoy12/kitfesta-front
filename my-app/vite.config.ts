@@ -9,7 +9,7 @@ export default defineConfig({
     proxy: {
 
       '/api': {
-        target: 'https://kitfestajanines.com.br/api',
+        target: 'http://localhost:4055',
         changeOrigin: true,
         secure: false,
         rewrite: path => path.replace(/^\/api/, ''),

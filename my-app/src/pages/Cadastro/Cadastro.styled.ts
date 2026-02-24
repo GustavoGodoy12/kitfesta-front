@@ -10,21 +10,21 @@ export const Wrapper = styled.form`
   color: #111827;
 `
 
-/* TOPO – FORMULÁRIO (2/3 inputs, 1/3 botão) */
-
 export const FormPanel = styled.section`
   background: #ffffff;
   border-radius: 10px;
   padding: 10px 12px;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
-  display: inline-flex;
+  display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: stretch;
 `
 
 export const FormRows = styled.div`
-  flex: 2;
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -32,7 +32,7 @@ export const FormRows = styled.div`
 
 export const FormRow = styled.div`
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 10px;
 
   > div {
@@ -104,10 +104,12 @@ export const FieldSelect = styled.select`
 `
 
 export const FormBottomRow = styled.div`
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding-left: 8px;
+  border-left: 1px solid #e5e7eb;
 `
 
 export const SubmitButton = styled(BaseButton)`
@@ -206,7 +208,7 @@ export const MetaLabel = styled.span`
 export const MetaValue = styled.span`
   color: #111827;
   font-weight: 700;
-  font-size:    1.4rem;
+  font-size: 1.4rem;
 `
 
 export const CategoryBody = styled.div<{ $twoColumns: boolean }>`

@@ -8,9 +8,7 @@ import Imprimir from './pages/Imprimir/Imprimir'
 import Relacao from './pages/Relacao/Relacao'
 import Consolidado from './pages/Consolidado/Consolidado'
 
-
 import { AuthProvider } from './auth/AuthContext'
-
 
 
 export default function App() {
@@ -28,6 +26,7 @@ export default function App() {
             <Route path="/imprimir" element={<Imprimir />} />
             <Route path="/relacao" element={<Relacao />} />
             <Route path="/consolidado" element={<Consolidado />} />
+
 
           </Routes>
         </main>
