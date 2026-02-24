@@ -7,15 +7,16 @@ import {
   RelacaoHeaderNumero, RelacaoTbody, RelacaoRow, RelacaoCell,
   RelacaoCellNumero,
 } from './Consolidado.styled'
-import Popup, { type PopupFormData } from './Popup/Popup'
+import Popup, { type PopupItemData } from './Popup/Popup'
 import { fetchPedidosConsolidado, type Pedido } from '../../services/consolidado'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4055'
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? ''
 const STORAGE_KEY = 'sisteminha-pedidos'
 
 type CategoryKey = 'doces' | 'salgados' | 'bolos'
 
 type ConsolidadoRow = {
+  itemId: number | undefined  // novo
   pedidoId: number
   pedido: string
   data: string
@@ -97,8 +98,8 @@ export default function Consolidado() {
   const [retiradaFiltro, setRetiradaFiltro] = useState<'' | 'ENTREGA' | 'RETIRADA'>('')
   const [rows, setRows] = useState<ConsolidadoRow[]>([])
   const [loading, setLoading] = useState(false)
-  const [popupPedidoId, setPopupPedidoId] = useState<number | null>(null)
-  const [popupInitialData, setPopupInitialData] = useState<PopupFormData | null>(null)
+  const [popupItemId, setPopupItemId] = useState<number | null>(null)
+  const [popupInitialData, setPopupInitialData] = useState<PopupItemData | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   const dayLabel = getDayLabel(dataFiltro)
@@ -127,6 +128,7 @@ export default function Consolidado() {
         for (const line of linhas) {
           out.push({
             ...base,
+            itemId: line?.id,   // novo
             categoria: cat,
             descricao: String(line?.descricao ?? ''),
             quantidade: String(line?.quantidade ?? ''),
@@ -170,49 +172,33 @@ export default function Consolidado() {
     }
   }
 
-  async function handleDelete(pedidoId: number) {
-    if (!confirm(`Excluir pedido #${pedidoId}? Esta ação não pode ser desfeita.`)) return
+  async function handleDeleteItem(itemId: number | undefined) {
+    if (!itemId) return alert('Item sem ID — não é possível excluir.')
+    if (!confirm(`Excluir este item? Esta ação não pode ser desfeita.`)) return
     try {
-      const res = await fetch(`${API_BASE_URL}/pedidos/${pedidoId}`, { method: 'DELETE' })
+      const res = await fetch(`${API_BASE_URL}/api/itens/${itemId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error(`Erro ${res.status}`)
-      setRows(prev => prev.filter(r => r.pedidoId !== pedidoId))
+      setRows(prev => prev.filter(r => r.itemId !== itemId))
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro ao excluir pedido')
+      alert(err instanceof Error ? err.message : 'Erro ao excluir item')
     }
   }
 
   function handleOpenPopup(row: ConsolidadoRow) {
-    const fd = row._rawFormData
+    if (!row.itemId) return alert('Item sem ID — não é possível editar.')
     setPopupInitialData({
-      responsavel: fd.responsavel || '',
-      cliente: fd.cliente || '',
-      revendedor: fd.revendedor || '',
-      telefone: fd.telefone || '',
-      retirada: fd.retirada || 'ENTREGA',
-      data: fd.data || '',
-      horario: fd.horario || '',
-      endereco_entrega: fd.enderecoEntrega || fd.endereco_entrega || '',
-      preco_total: fd.precoTotal || fd.preco_total || '',
-      tipo_pagamento: fd.tipoPagamento || fd.tipo_pagamento || '',
-      tamanho: fd.tamanho || '',
+      descricao: row.descricao,
+      quantidade: row.quantidade,
+      unidade: row.unidade,
     })
-    setPopupPedidoId(row.pedidoId)
+    setPopupItemId(row.itemId)
   }
 
-  function handlePopupSaved(id: number, data: PopupFormData) {
+  function handlePopupSaved(itemId: number, data: PopupItemData) {
     setRows(prev =>
       prev.map(r =>
-        r.pedidoId === id
-          ? {
-              ...r,
-              cliente: data.cliente,
-              responsavel: data.responsavel,
-              retirada: data.retirada,
-              horario: data.horario,
-              data: data.data,
-              tamanho: data.tamanho,
-              _rawFormData: { ...r._rawFormData, ...data },
-            }
+        r.itemId === itemId
+          ? { ...r, descricao: data.descricao, quantidade: data.quantidade, unidade: data.unidade }
           : r,
       ),
     )
@@ -361,7 +347,7 @@ export default function Consolidado() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDelete(r.pedidoId)}
+                          onClick={() => handleDeleteItem(r.itemId)}
                           style={{
                             background: '#fee2e2', border: 'none', borderRadius: 6,
                             padding: '2px 8px', fontWeight: 700, fontSize: '0.75rem',
@@ -380,11 +366,11 @@ export default function Consolidado() {
         </TableSection>
       </Wrapper>
 
-      {popupPedidoId !== null && popupInitialData !== null && (
+      {popupItemId !== null && popupInitialData !== null && (
         <Popup
-          pedidoId={popupPedidoId}
+          itemId={popupItemId}
           initialData={popupInitialData}
-          onClose={() => { setPopupPedidoId(null); setPopupInitialData(null) }}
+          onClose={() => { setPopupItemId(null); setPopupInitialData(null) }}
           onSaved={handlePopupSaved}
         />
       )}

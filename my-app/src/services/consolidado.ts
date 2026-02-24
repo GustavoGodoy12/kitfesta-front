@@ -3,6 +3,7 @@
 type CategoryKey = 'doces' | 'salgados' | 'bolos'
 
 export type ItemLine = {
+  id?: number
   descricao: string
   quantidade: string
   unidade: string
@@ -122,3 +123,5 @@ export async function fetchPedidosConsolidado(
   const json = await resp.json()
   return normalizePedidosList(json)
 }
+
+

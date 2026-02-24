@@ -5,31 +5,23 @@ import {
   CancelButton, SaveButton,
 } from './Popup.styled'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4055'
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
-export type PopupFormData = {
-  responsavel: string
-  cliente: string
-  revendedor: string
-  telefone: string
-  retirada: string
-  data: string
-  horario: string
-  endereco_entrega: string
-  preco_total: string
-  tipo_pagamento: string
-  tamanho: string
+export type PopupItemData = {
+  descricao: string
+  quantidade: string
+  unidade: string
 }
 
 type Props = {
-  pedidoId: number
-  initialData: PopupFormData
+  itemId: number
+  initialData: PopupItemData
   onClose: () => void
-  onSaved: (id: number, data: PopupFormData) => void
+  onSaved: (itemId: number, data: PopupItemData) => void
 }
 
-export default function Popup({ pedidoId, initialData, onClose, onSaved }: Props) {
-  const [form, setForm] = useState<PopupFormData>(initialData)
+export default function Popup({ itemId, initialData, onClose, onSaved }: Props) {
+  const [form, setForm] = useState<PopupItemData>(initialData)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -42,13 +34,13 @@ export default function Popup({ pedidoId, initialData, onClose, onSaved }: Props
     setSaving(true)
     setError('')
     try {
-      const res = await fetch(`${API_BASE_URL}/pedidos/${pedidoId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/itens/${itemId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formData: form }),
+        body: JSON.stringify(form),
       })
       if (!res.ok) throw new Error(`Erro ${res.status}`)
-      onSaved(pedidoId, form)
+      onSaved(itemId, form)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar')
@@ -60,70 +52,25 @@ export default function Popup({ pedidoId, initialData, onClose, onSaved }: Props
   return (
     <Overlay onClick={onClose}>
       <Modal onClick={e => e.stopPropagation()}>
-        <ModalTitle>Editar Pedido #{pedidoId}</ModalTitle>
+        <ModalTitle>Editar Item</ModalTitle>
 
         {error && <div style={{ color: '#dc2626', fontSize: '0.85rem' }}>{error}</div>}
 
         <ModalGrid>
           <ModalField>
-            <ModalLabel>Responsável</ModalLabel>
-            <ModalInput name="responsavel" value={form.responsavel} onChange={handleChange} />
+            <ModalLabel>Descrição</ModalLabel>
+            <ModalInput name="descricao" value={form.descricao} onChange={handleChange} />
           </ModalField>
           <ModalField>
-            <ModalLabel>Cliente</ModalLabel>
-            <ModalInput name="cliente" value={form.cliente} onChange={handleChange} />
+            <ModalLabel>Quantidade</ModalLabel>
+            <ModalInput name="quantidade" value={form.quantidade} onChange={handleChange} />
           </ModalField>
           <ModalField>
-            <ModalLabel>Revendedor</ModalLabel>
-            <ModalInput name="revendedor" value={form.revendedor} onChange={handleChange} />
-          </ModalField>
-          <ModalField>
-            <ModalLabel>Telefone</ModalLabel>
-            <ModalInput name="telefone" value={form.telefone} onChange={handleChange} />
-          </ModalField>
-          <ModalField>
-            <ModalLabel>Data</ModalLabel>
-            <ModalInput type="date" name="data" value={form.data} onChange={handleChange} />
-          </ModalField>
-          <ModalField>
-            <ModalLabel>Horário</ModalLabel>
-            <ModalInput type="time" name="horario" value={form.horario} onChange={handleChange} />
-          </ModalField>
-          <ModalField>
-            <ModalLabel>Retirada / Entrega</ModalLabel>
-            <ModalSelect name="retirada" value={form.retirada} onChange={handleChange}>
-              <option value="ENTREGA">ENTREGA</option>
-              <option value="RETIRADA">RETIRADA</option>
-            </ModalSelect>
-          </ModalField>
-          <ModalField>
-            <ModalLabel>Endereço</ModalLabel>
-            <ModalInput name="endereco_entrega" value={form.endereco_entrega} onChange={handleChange} />
-          </ModalField>
-          <ModalField>
-            <ModalLabel>Preço total</ModalLabel>
-            <ModalInput name="preco_total" value={form.preco_total} onChange={handleChange} />
-          </ModalField>
-          <ModalField>
-            <ModalLabel>Tipo pagamento</ModalLabel>
-            <ModalInput name="tipo_pagamento" value={form.tipo_pagamento} onChange={handleChange} />
-          </ModalField>
-          <ModalField>
-            <ModalLabel>Tamanho</ModalLabel>
-            <ModalSelect name="tamanho" value={form.tamanho} onChange={handleChange}>
-              <option value="">-</option>
-              <option value="10">10</option>
-              <option value="20">20</option>
-              <option value="30">30</option>
-              <option value="40">40</option>
-              <option value="50">50</option>
-              <option value="60">60</option>
-              <option value="70">70</option>
-              <option value="80">80</option>
-              <option value="90">90</option>
-              <option value="100">100</option>
-              <option value="BENTO CAKE">BENTO CAKE</option>
-              <option value="AVULSO">AVULSO</option>
+            <ModalLabel>Unidade</ModalLabel>
+            <ModalSelect name="unidade" value={form.unidade} onChange={handleChange}>
+              <option value="UN">UN</option>
+              <option value="KG">KG</option>
+              <option value="L">L</option>
             </ModalSelect>
           </ModalField>
         </ModalGrid>
