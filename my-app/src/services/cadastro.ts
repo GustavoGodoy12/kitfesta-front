@@ -77,7 +77,7 @@ export function buildPedidoPayload(
       horario: formData.horario,
       endereco_entrega: formData.enderecoEntrega,
       preco_total: formData.precoTotal,
-      tipo_pagamento: formData.tipoPagamento ?? 'PIX',
+      tipo_pagamento: formData.tipoPagamento ?? '',
       tamanho: formData.tamanho ?? '',  // novo
     },
     items: cleanItems(items),
