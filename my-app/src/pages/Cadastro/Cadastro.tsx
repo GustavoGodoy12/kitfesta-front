@@ -54,6 +54,7 @@ type FormData = {
   horario: string
   enderecoEntrega: string
   precoTotal: string
+  tamanho: string
 }
 
 type CategoryKey = 'doces' | 'salgados' | 'bolos'
@@ -87,6 +88,7 @@ const initialFormData: FormData = {
   horario: '',
   enderecoEntrega: '',
   precoTotal: '',
+  tamanho: '',
 }
 
 const makeLines = (defaultUnit: string): ItemLine[] =>
@@ -501,8 +503,28 @@ export default function Cadastro() {
                 <FieldLabel>Preço total</FieldLabel>
                 <FieldInput name="precoTotal" value={formData.precoTotal} onChange={handleFormChange} />
               </div>
+
+                        <div>
+  <FieldLabel>Tamanho</FieldLabel>
+  <FieldSelect name="tamanho" value={formData.tamanho} onChange={handleFormChange}>
+    <option value="">-</option>
+    <option value="10">10</option>
+    <option value="20">20</option>
+    <option value="30">30</option>
+    <option value="40">40</option>
+    <option value="50">50</option>
+    <option value="60">60</option>
+    <option value="70">70</option>
+    <option value="80">80</option>
+    <option value="90">90</option>
+    <option value="100">100</option>
+    <option value="BENTO CAKE">BENTO CAKE</option>
+    <option value="AVULSO">AVULSO</option>
+  </FieldSelect>
+</div>
             </FormRow>
           </FormRows>
+
 
           <FormBottomRow>
             <SubmitButton type="submit">Cadastrar</SubmitButton>

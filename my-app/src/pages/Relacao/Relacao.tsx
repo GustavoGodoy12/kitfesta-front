@@ -30,7 +30,6 @@ const STORAGE_KEY = 'sisteminha-pedidos'
 type CategoryKey = 'doces' | 'salgados' | 'bolos'
 type ItemsByCategory = Record<CategoryKey, { descricao: string; quantidade: string; unidade: string }[]>
 
-// formata "2025-03-26" -> "26/03/2025"
 function formatDateToBR(dateStr?: string): string {
   if (!dateStr) return ''
   if (dateStr.includes('/')) return dateStr
@@ -39,7 +38,6 @@ function formatDateToBR(dateStr?: string): string {
   return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`
 }
 
-// evita o bug de fuso horário criando Date com (ano, mes-1, dia)
 function getDayLabel(dateStr?: string) {
   if (!dateStr) return ''
   const [yearStr, monthStr, dayStr] = dateStr.split('-')
@@ -49,8 +47,7 @@ function getDayLabel(dateStr?: string) {
   if (!year || !month || !day) return ''
   const d = new Date(year, month - 1, day)
   const dias = ['DOMINGO', 'SEGUNDA', 'TERÇA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÁBADO']
-  const idx = d.getDay()
-  return dias[idx] ?? ''
+  return dias[d.getDay()] ?? ''
 }
 
 function loadPedidosLocal(): Pedido[] {
@@ -77,6 +74,7 @@ export default function Relacao() {
   const [dataFiltro, setDataFiltro] = useState('')
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [loading, setLoading] = useState(false)
+  const [tipoPagamentoEdit, setTipoPagamentoEdit] = useState<Record<number, string>>({})
 
   const abortRef = useRef<AbortController | null>(null)
 
@@ -88,14 +86,12 @@ export default function Relacao() {
     abortRef.current = controller
 
     try {
-      // ✅ API (GET /pedidos?data=YYYY-MM-DD) — se dataFiltro vazio, busca tudo
       const apiPedidos = await fetchPedidosByData(dataFiltro, { signal: controller.signal })
       setPedidos(apiPedidos)
       return
     } catch (err) {
       console.error('Falhou API, usando fallback localStorage:', err)
 
-      // fallback localStorage
       const todos = loadPedidosLocal()
       const filtrados =
         dataFiltro.trim() === ''
@@ -121,10 +117,7 @@ export default function Relacao() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     await gerarRelacao()
-
-    setTimeout(() => {
-      window.print()
-    }, 100)
+    setTimeout(() => window.print(), 100)
   }
 
   const dayLabel = getDayLabel(dataFiltro)
@@ -132,7 +125,6 @@ export default function Relacao() {
   return (
     <Layout>
       <Wrapper onSubmit={handleSubmit}>
-        {/* TOPO – filtro por data + botões */}
         <TopPanel>
           <TopRows>
             <TopRow>
@@ -161,7 +153,6 @@ export default function Relacao() {
           </TopBottomRow>
         </TopPanel>
 
-        {/* TABELA DA RELAÇÃO */}
         <TableSection>
           <TableWrapper>
             <RelacaoTable>
@@ -177,6 +168,7 @@ export default function Relacao() {
                   <RelacaoHeaderCell>REVENDEDOR</RelacaoHeaderCell>
                   <RelacaoHeaderCell>TIPO PAGAMENTO</RelacaoHeaderCell>
                   <RelacaoHeaderCell>ENTREGA</RelacaoHeaderCell>
+                  <RelacaoHeaderCell>TAMANHO</RelacaoHeaderCell>
                   <RelacaoHeaderCell>DOCE</RelacaoHeaderCell>
                   <RelacaoHeaderCell>SALG</RelacaoHeaderCell>
                   <RelacaoHeaderCell>BOLO</RelacaoHeaderCell>
@@ -212,8 +204,26 @@ export default function Relacao() {
                       <RelacaoCell>{horario || ''}</RelacaoCell>
                       <RelacaoCell>{precoTotal || ''}</RelacaoCell>
                       <RelacaoCell>{revendedor || ''}</RelacaoCell>
-                      <RelacaoCell>{tipoPagamento || ''}</RelacaoCell>
+                      <RelacaoCell>
+                        <input
+                          value={tipoPagamentoEdit[id] ?? tipoPagamento ?? ''}
+                          onChange={e =>
+                            setTipoPagamentoEdit(prev => ({ ...prev, [id]: e.target.value }))
+                          }
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            fontWeight: 700,
+                            fontSize: '0.78rem',
+                            color: '#111827',
+                            width: '100%',
+                            outline: 'none',
+                            cursor: 'text',
+                          }}
+                        />
+                      </RelacaoCell>
                       <RelacaoCell>{retirada || ''}</RelacaoCell>
+                      <RelacaoCell>{p.formData?.tamanho || ''}</RelacaoCell>
                       <RelacaoCell>{totalDoces || ''}</RelacaoCell>
                       <RelacaoCell>{totalSalgados || ''}</RelacaoCell>
                       <RelacaoCell>{totalBolos || ''}</RelacaoCell>

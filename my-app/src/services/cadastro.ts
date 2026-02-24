@@ -21,6 +21,7 @@ export type CadastroFormData = {
   enderecoEntrega: string
   precoTotal: string
   tipoPagamento?: string
+  tamanho?: string  // novo
 }
 
 // Payload da API (snake_case)
@@ -36,6 +37,7 @@ export type PedidoCreatePayload = {
     endereco_entrega: string
     preco_total: string
     tipo_pagamento: string
+    tamanho: string  // novo
   }
   items: ItemsByCategory
   comments: CategoryComments
@@ -76,6 +78,7 @@ export function buildPedidoPayload(
       endereco_entrega: formData.enderecoEntrega,
       preco_total: formData.precoTotal,
       tipo_pagamento: formData.tipoPagamento ?? 'PIX',
+      tamanho: formData.tamanho ?? '',  // novo
     },
     items: cleanItems(items),
     comments,
@@ -97,7 +100,6 @@ export async function createPedido(payload: PedidoCreatePayload) {
   return res.json().catch(() => ({}))
 }
 
-// ✅ NOVO: pega o último id no banco (GET /pedidos?ultimo_id=true)
 export async function fetchUltimoPedidoId(): Promise<number> {
   const res = await fetch('/api/pedidos?ultimo_id=true', {
     method: 'GET',

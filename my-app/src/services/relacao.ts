@@ -1,5 +1,3 @@
-// src/services/relacao.ts
-
 type CategoryKey = 'doces' | 'salgados' | 'bolos'
 
 export type ItemLine = {
@@ -22,6 +20,7 @@ export type FormData = {
   enderecoEntrega: string
   precoTotal: string
   tipoPagamento?: string
+  tamanho?: string  // novo
 }
 
 export type Pedido = {
@@ -51,11 +50,10 @@ function normalizePedido(data: any): Pedido {
     retirada: toStr(apiForm?.retirada),
     data: toStr(apiForm?.data),
     horario: toStr(apiForm?.horario),
-
-    // snake_case -> camelCase
     enderecoEntrega: toStr(apiForm?.enderecoEntrega ?? apiForm?.endereco_entrega),
     precoTotal: toStr(apiForm?.precoTotal ?? apiForm?.preco_total),
     tipoPagamento: toStr(apiForm?.tipoPagamento ?? apiForm?.tipo_pagamento),
+    tamanho: toStr(apiForm?.tamanho),  // novo
   }
 
   const items: ItemsByCategory = {
@@ -68,23 +66,13 @@ function normalizePedido(data: any): Pedido {
 }
 
 function normalizePedidosList(json: any): Pedido[] {
-  // ✅ 1) API pode retornar array direto
   if (Array.isArray(json)) return json.map(normalizePedido)
-
-  // ✅ 2) seu controller retorna { pedidos: [...] }
   if (Array.isArray(json?.pedidos)) return json.pedidos.map(normalizePedido)
-
-  // extras (se mudar no futuro)
   if (Array.isArray(json?.data)) return json.data.map(normalizePedido)
   if (Array.isArray(json?.items)) return json.items.map(normalizePedido)
-
   return []
 }
 
-/**
- * GET /pedidos?data=YYYY-MM-DD
- * - se data vier vazia: GET /pedidos
- */
 export async function fetchPedidosByData(
   data?: string,
   opts?: { signal?: AbortSignal },

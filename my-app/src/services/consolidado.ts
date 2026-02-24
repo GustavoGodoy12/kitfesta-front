@@ -22,6 +22,7 @@ export type FormData = {
   enderecoEntrega: string
   precoTotal: string
   tipoPagamento?: string
+  tamanho?: string  
 }
 
 export type Pedido = {
@@ -64,6 +65,7 @@ function normalizePedido(data: any): Pedido {
     enderecoEntrega: toStr(apiForm?.enderecoEntrega ?? apiForm?.endereco_entrega),
     precoTotal: toStr(apiForm?.precoTotal ?? apiForm?.preco_total),
     tipoPagamento: toStr(apiForm?.tipoPagamento ?? apiForm?.tipo_pagamento),
+    tamanho: toStr(apiForm?.tamanho),
   }
 
   const items: ItemsByCategory = {
