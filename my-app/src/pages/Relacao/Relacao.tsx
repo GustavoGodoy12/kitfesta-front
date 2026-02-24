@@ -7,7 +7,7 @@ import {
   RelacaoHeaderNumero, RelacaoTbody, RelacaoRow, RelacaoCell,
   RelacaoCellNumero,
 } from './Relacao.styled'
-import Popup, { type PopupItemData } from '../Consolidado/Popup/Popup'
+import PopupPagamento from './PopupPagamento/PopupPagamento'
 import { fetchPedidosByData, type Pedido } from '../../services/relacao'
 
 const STORAGE_KEY = 'sisteminha-pedidos'
@@ -67,7 +67,6 @@ export default function Relacao() {
     try {
       const apiPedidos = await fetchPedidosByData(dataFiltro, { signal: controller.signal })
       setPedidos(apiPedidos)
-      // inicializa entregues com valores do banco
       const init: Record<number, boolean> = {}
       apiPedidos.forEach(p => { init[p.id] = p.formData?.entregue ?? false })
       setEntregues(init)
@@ -94,7 +93,6 @@ export default function Relacao() {
       })
     } catch (err) {
       console.error('Erro ao salvar entregue:', err)
-      // reverte se falhar
       setEntregues(prev => ({ ...prev, [pedidoId]: !value }))
     }
   }
@@ -104,24 +102,14 @@ export default function Relacao() {
     setPopupTipoPag(tipoPagamentoAtual)
   }
 
-  async function handleSaveTipoPagamento(_itemId: number, data: PopupItemData) {
-    if (popupPedidoId === null) return
-    try {
-      await fetch(`/api/pedidos/${popupPedidoId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formData: { tipo_pagamento: data.descricao } }),
-      })
-      setPedidos(prev =>
-        prev.map(p =>
-          p.id === popupPedidoId
-            ? { ...p, formData: { ...p.formData, tipoPagamento: data.descricao } }
-            : p,
-        ),
-      )
-    } catch (err) {
-      console.error('Erro ao salvar tipo pagamento:', err)
-    }
+  function handleSaveTipoPagamento(pedidoId: number, tipoPagamento: string) {
+    setPedidos(prev =>
+      prev.map(p =>
+        p.id === pedidoId
+          ? { ...p, formData: { ...p.formData, tipoPagamento } }
+          : p,
+      ),
+    )
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -247,9 +235,9 @@ export default function Relacao() {
       </Wrapper>
 
       {popupPedidoId !== null && (
-        <Popup
-          itemId={popupPedidoId}
-          initialData={{ descricao: popupTipoPag, quantidade: '', unidade: '' }}
+        <PopupPagamento
+          pedidoId={popupPedidoId}
+          valorAtual={popupTipoPag}
           onClose={() => setPopupPedidoId(null)}
           onSaved={handleSaveTipoPagamento}
         />
