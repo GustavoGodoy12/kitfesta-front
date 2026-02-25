@@ -9,7 +9,6 @@ export type ItemLine = {
 export type ItemsByCategory = Record<CategoryKey, ItemLine[]>
 export type CategoryComments = Record<CategoryKey, string>
 
-// Form do Cadastro (camelCase)
 export type CadastroFormData = {
   responsavel: string
   cliente: string
@@ -20,11 +19,11 @@ export type CadastroFormData = {
   horario: string
   enderecoEntrega: string
   precoTotal: string
+  taxaEntrega?: string
   tipoPagamento?: string
-  tamanho?: string  // novo
+  tamanho?: string
 }
 
-// Payload da API (snake_case)
 export type PedidoCreatePayload = {
   formData: {
     responsavel: string
@@ -36,14 +35,14 @@ export type PedidoCreatePayload = {
     horario: string
     endereco_entrega: string
     preco_total: string
+    taxa_entrega: string
     tipo_pagamento: string
-    tamanho: string  // novo
+    tamanho: string
   }
   items: ItemsByCategory
   comments: CategoryComments
 }
 
-// remove linhas vazias
 function cleanItems(items: ItemsByCategory): ItemsByCategory {
   const cleanCategory = (lines: ItemLine[]) =>
     lines
@@ -53,7 +52,6 @@ function cleanItems(items: ItemsByCategory): ItemsByCategory {
         unidade: l.unidade?.trim?.() ?? '',
       }))
       .filter(l => l.descricao !== '' || l.quantidade !== '')
-
   return {
     doces: cleanCategory(items.doces),
     salgados: cleanCategory(items.salgados),
@@ -77,8 +75,9 @@ export function buildPedidoPayload(
       horario: formData.horario,
       endereco_entrega: formData.enderecoEntrega,
       preco_total: formData.precoTotal,
+      taxa_entrega: formData.taxaEntrega ?? '',
       tipo_pagamento: formData.tipoPagamento ?? '',
-      tamanho: formData.tamanho ?? '',  // novo
+      tamanho: formData.tamanho ?? '',
     },
     items: cleanItems(items),
     comments,
@@ -91,12 +90,10 @@ export async function createPedido(payload: PedidoCreatePayload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
-
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(`Erro ao salvar pedido (${res.status}). ${text}`)
   }
-
   return res.json().catch(() => ({}))
 }
 
@@ -105,12 +102,10 @@ export async function fetchUltimoPedidoId(): Promise<number> {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
   })
-
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(`Erro ao buscar ultimo_id (${res.status}). ${text}`)
   }
-
   const data = await res.json().catch(() => ({} as any))
   const ultimoId = Number((data as any)?.ultimoId ?? 0)
   return Number.isFinite(ultimoId) ? ultimoId : 0

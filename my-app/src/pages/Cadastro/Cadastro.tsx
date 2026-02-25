@@ -325,21 +325,22 @@ export default function Cadastro() {
         : nextId || 1
 
     const payload = buildPedidoPayload(
-      {
-        responsavel: formData.responsavel,
-        cliente: formData.cliente,
-        revendedor: formData.revendedor,
-        telefone: formData.telefone,
-        retirada: formData.retirada,
-        data: formData.data,
-        horario: formData.horario,
-        enderecoEntrega: formData.enderecoEntrega,
-        precoTotal: precoFinal,
-        tamanho: formData.tamanho,
-      },
-      items,
-      comments,
-    )
+  {
+    responsavel: formData.responsavel,
+    cliente: formData.cliente,
+    revendedor: formData.revendedor,
+    telefone: formData.telefone,
+    retirada: formData.retirada,
+    data: formData.data,
+    horario: formData.horario,
+    enderecoEntrega: formData.enderecoEntrega,
+    precoTotal: precoFinal,       // somado
+    taxaEntrega: formData.taxaEntrega,  // separado
+    tamanho: formData.tamanho,
+  },
+  items,
+  comments,
+)
 
     try {
       const resp = await createPedido(payload)
