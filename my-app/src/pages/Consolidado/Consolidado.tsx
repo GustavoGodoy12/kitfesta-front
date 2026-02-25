@@ -2,7 +2,7 @@ import { useRef, useState, type FormEvent } from 'react'
 import Layout from '../../layout/Layout'
 import {
   Wrapper, TopPanel, TopRows, TopRow, FieldLabel, FieldInput,
-  DayBadge, TopBottomRow, GenerateButton, PrintButton, TableSection,
+  TopBottomRow, GenerateButton, PrintButton, TableSection,
   TableWrapper, RelacaoTable, RelacaoThead, RelacaoHeaderCell,
   RelacaoHeaderNumero, RelacaoTbody, RelacaoRow, RelacaoCell,
   RelacaoCellNumero,
@@ -42,15 +42,6 @@ function formatDateToBR(dateStr?: string): string {
   return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`
 }
 
-function getDayLabel(dateStr?: string) {
-  if (!dateStr) return ''
-  const [yearStr, monthStr, dayStr] = dateStr.split('-')
-  const year = Number(yearStr), month = Number(monthStr), day = Number(dayStr)
-  if (!year || !month || !day) return ''
-  const d = new Date(year, month - 1, day)
-  return ['DOMINGO','SEGUNDA','TERÇA','QUARTA','QUINTA','SEXTA','SÁBADO'][d.getDay()] ?? ''
-}
-
 function getMonthLabelFromISO(dateStr?: string) {
   if (!dateStr) return ''
   const [year, month] = dateStr.split('-')
@@ -68,40 +59,41 @@ function loadPedidosLocal(): Pedido[] {
 }
 
 function applyLocalFilters(pedidos: Pedido[], filters: any): Pedido[] {
-  const fData = filters.data?.trim()
+  const fDataInicio = filters.data_inicio?.trim()
+  const fDataFim = filters.data_fim?.trim()
   const fCliente = filters.cliente?.trim().toLowerCase()
   const fResp = filters.responsavel?.trim().toLowerCase()
   const fRet = filters.retirada?.trim().toLowerCase()
-  const fHora = filters.horario?.trim()
   const fPedido = filters.pedidoId?.trim()
 
   return pedidos.filter(p => {
     const fd = p.formData || ({} as any)
+    const dataOk = (
+      (!fDataInicio || (fd.data ?? '') >= fDataInicio) &&
+      (!fDataFim || (fd.data ?? '') <= fDataFim)
+    )
     return (
-      (!fData || fd.data === fData) &&
+      dataOk &&
       (!fCliente || String(fd.cliente ?? '').toLowerCase().includes(fCliente)) &&
       (!fResp || String(fd.responsavel ?? '').toLowerCase().includes(fResp)) &&
       (!fRet || String(fd.retirada ?? '').toLowerCase().includes(fRet)) &&
-      (!fHora || String(fd.horario ?? '').startsWith(fHora)) &&
       (!fPedido || String(fd.pedidoId ?? '').trim() === fPedido || String(p.id) === fPedido)
     )
   })
 }
 
 export default function Consolidado() {
-  const [dataFiltro, setDataFiltro] = useState('')
+  const [dataInicio, setDataInicio] = useState('')
+  const [dataFim, setDataFim] = useState('')
   const [clienteFiltro, setClienteFiltro] = useState('')
   const [responsavelFiltro, setResponsavelFiltro] = useState('')
   const [pedidoNumero, setPedidoNumero] = useState('')
-  const [horarioFiltro, setHorarioFiltro] = useState('')
   const [retiradaFiltro, setRetiradaFiltro] = useState<'' | 'ENTREGA' | 'RETIRADA'>('')
   const [rows, setRows] = useState<ConsolidadoRow[]>([])
   const [loading, setLoading] = useState(false)
   const [popupItemId, setPopupItemId] = useState<number | null>(null)
   const [popupInitialData, setPopupInitialData] = useState<PopupItemData | null>(null)
   const abortRef = useRef<AbortController | null>(null)
-
-  const dayLabel = getDayLabel(dataFiltro)
 
   function flattenPedidos(pedidos: Pedido[]): ConsolidadoRow[] {
     const out: ConsolidadoRow[] = []
@@ -148,11 +140,11 @@ export default function Consolidado() {
     abortRef.current = controller
 
     const filtros = {
-      data: dataFiltro.trim() || undefined,
+      data_inicio: dataInicio.trim() || undefined,
+      data_fim: dataFim.trim() || undefined,
       cliente: clienteFiltro.trim() || undefined,
       responsavel: responsavelFiltro.trim() || undefined,
       retirada: retiradaFiltro || undefined,
-      horario: horarioFiltro.trim() || undefined,
       pedidoId: pedidoIdClean.trim() || undefined,
     }
 
@@ -216,11 +208,11 @@ export default function Consolidado() {
   function handleClearFilters() {
     if (abortRef.current) abortRef.current.abort()
     abortRef.current = null
-    setDataFiltro('')
+    setDataInicio('')
+    setDataFim('')
     setClienteFiltro('')
     setResponsavelFiltro('')
     setPedidoNumero('')
-    setHorarioFiltro('')
     setRetiradaFiltro('')
     setRows([])
   }
@@ -232,12 +224,12 @@ export default function Consolidado() {
           <TopRows>
             <TopRow>
               <div>
-                <FieldLabel>Data</FieldLabel>
-                <FieldInput type="date" value={dataFiltro} onChange={e => setDataFiltro(e.target.value)} />
+                <FieldLabel>Data início</FieldLabel>
+                <FieldInput type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
               </div>
               <div>
-                <FieldLabel>Dia da semana</FieldLabel>
-                <DayBadge>{dayLabel || '-'}</DayBadge>
+                <FieldLabel>Data fim</FieldLabel>
+                <FieldInput type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} />
               </div>
               <div>
                 <FieldLabel>Cliente</FieldLabel>
@@ -255,10 +247,6 @@ export default function Consolidado() {
                   pattern="[0-9]*"
                   onChange={e => setPedidoNumero(sanitizeOnlyDigits(e.target.value))}
                 />
-              </div>
-              <div>
-                <FieldLabel>Horário</FieldLabel>
-                <FieldInput type="time" value={horarioFiltro} onChange={e => setHorarioFiltro(e.target.value)} />
               </div>
               <div>
                 <FieldLabel>Retirada / Entrega</FieldLabel>
