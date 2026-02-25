@@ -8,6 +8,7 @@ import {
   RelacaoCellNumero,
 } from './Relacao.styled'
 import PopupPagamento from './PopupPagamento/PopupPagamento'
+import PopupValor from './PopupValor/PopupValor'
 import { fetchPedidosByData, type Pedido } from '../../services/relacao'
 
 const STORAGE_KEY = 'sisteminha-pedidos'
@@ -51,11 +52,19 @@ function computeTotalCategory(items: ItemsByCategory | undefined, cat: CategoryK
 
 export default function Relacao() {
   const [dataFiltro, setDataFiltro] = useState('')
+  const [numeroPedidoFiltro, setNumeroPedidoFiltro] = useState('')
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [loading, setLoading] = useState(false)
   const [entregues, setEntregues] = useState<Record<number, boolean>>({})
-  const [popupPedidoId, setPopupPedidoId] = useState<number | null>(null)
-  const [popupTipoPag, setPopupTipoPag] = useState<string>('')
+
+  // popup pagamento
+  const [popupPagId, setPopupPagId] = useState<number | null>(null)
+  const [popupPagValor, setPopupPagValor] = useState('')
+
+  // popup valor
+  const [popupValorId, setPopupValorId] = useState<number | null>(null)
+  const [popupValorAtual, setPopupValorAtual] = useState('')
+
   const abortRef = useRef<AbortController | null>(null)
 
   async function gerarRelacao() {
@@ -66,9 +75,17 @@ export default function Relacao() {
 
     try {
       const apiPedidos = await fetchPedidosByData(dataFiltro, { signal: controller.signal })
-      setPedidos(apiPedidos)
+
+      // filtro local por número do pedido
+      const filtrados = numeroPedidoFiltro.trim()
+        ? apiPedidos.filter(p =>
+            String(p.formData?.pedidoId ?? p.id) === numeroPedidoFiltro.trim(),
+          )
+        : apiPedidos
+
+      setPedidos(filtrados)
       const init: Record<number, boolean> = {}
-      apiPedidos.forEach(p => { init[p.id] = p.formData?.entregue ?? false })
+      filtrados.forEach(p => { init[p.id] = p.formData?.entregue ?? false })
       setEntregues(init)
     } catch (err) {
       console.error('Falhou API, usando fallback localStorage:', err)
@@ -80,6 +97,17 @@ export default function Relacao() {
       alert(err instanceof Error ? `API indisponível.\n\n${err.message}` : 'API indisponível.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleDeletePedido(pedidoId: number) {
+    if (!confirm(`Excluir pedido #${pedidoId}? Esta ação não pode ser desfeita.`)) return
+    try {
+      const res = await fetch(`/api/pedidos/${pedidoId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error(`Erro ${res.status}`)
+      setPedidos(prev => prev.filter(p => p.id !== pedidoId))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erro ao excluir pedido')
     }
   }
 
@@ -97,16 +125,21 @@ export default function Relacao() {
     }
   }
 
-  function handleOpenPopupPagamento(pedidoId: number, tipoPagamentoAtual: string) {
-    setPopupPedidoId(pedidoId)
-    setPopupTipoPag(tipoPagamentoAtual)
-  }
-
-  function handleSaveTipoPagamento(pedidoId: number, tipoPagamento: string) {
+  function handleSavePagamento(pedidoId: number, tipoPagamento: string) {
     setPedidos(prev =>
       prev.map(p =>
         p.id === pedidoId
           ? { ...p, formData: { ...p.formData, tipoPagamento } }
+          : p,
+      ),
+    )
+  }
+
+  function handleSaveValor(pedidoId: number, valor: string) {
+    setPedidos(prev =>
+      prev.map(p =>
+        p.id === pedidoId
+          ? { ...p, formData: { ...p.formData, precoTotal: valor } }
           : p,
       ),
     )
@@ -128,11 +161,26 @@ export default function Relacao() {
             <TopRow>
               <div>
                 <FieldLabel>Data</FieldLabel>
-                <FieldInput type="date" value={dataFiltro} onChange={e => setDataFiltro(e.target.value)} />
+                <FieldInput
+                  type="date"
+                  value={dataFiltro}
+                  onChange={e => setDataFiltro(e.target.value)}
+                />
               </div>
               <div>
                 <FieldLabel>Dia da semana</FieldLabel>
                 <DayBadge>{dayLabel || '-'}</DayBadge>
+              </div>
+              <div>
+                <FieldLabel>Nº do pedido</FieldLabel>
+                <FieldInput
+                  value={numeroPedidoFiltro}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="Ex: 42"
+                  onChange={e => setNumeroPedidoFiltro(e.target.value.replace(/\D/g, ''))}
+                  style={{ width: 110 }}
+                />
               </div>
             </TopRow>
           </TopRows>
@@ -161,11 +209,12 @@ export default function Relacao() {
                   <RelacaoHeaderCell>REVENDEDOR</RelacaoHeaderCell>
                   <RelacaoHeaderCell>TIPO PAGAMENTO</RelacaoHeaderCell>
                   <RelacaoHeaderCell>ENTREGA</RelacaoHeaderCell>
-                  <RelacaoHeaderCell>TAMANHO</RelacaoHeaderCell>
+                  <RelacaoHeaderCell>PESSOAS</RelacaoHeaderCell>
                   <RelacaoHeaderCell>DOCE</RelacaoHeaderCell>
                   <RelacaoHeaderCell>SALG</RelacaoHeaderCell>
                   <RelacaoHeaderCell>BOLO</RelacaoHeaderCell>
                   <RelacaoHeaderCell>ENTREGUE</RelacaoHeaderCell>
+                  <RelacaoHeaderCell>AÇÕES</RelacaoHeaderCell>
                 </tr>
               </RelacaoThead>
 
@@ -173,6 +222,7 @@ export default function Relacao() {
                 {pedidos.map(p => {
                   const id = p.id
                   const isEntregue = entregues[id] ?? false
+                  const isEntrega = (p.formData?.retirada ?? '') === 'ENTREGA'
                   const {
                     pedidoId, data, horario, telefone, cliente,
                     precoTotal, revendedor, tipoPagamento, retirada,
@@ -185,15 +235,35 @@ export default function Relacao() {
                   return (
                     <RelacaoRow
                       key={id}
-                      style={isEntregue ? { background: '#fef9c3' } : undefined}
+                      $entregue={isEntregue}
+                      $entrega={!isEntregue && isEntrega}
                     >
                       <RelacaoCell>{cliente || ''}</RelacaoCell>
                       <RelacaoCell>{formatDateToBR(data) || ''}</RelacaoCell>
                       <RelacaoCellNumero>{pedidoId || id}</RelacaoCellNumero>
                       <RelacaoCell>{telefone || ''}</RelacaoCell>
-                      <RelacaoCell>{cliente || ''}</RelacaoCell>
+                      <RelacaoCell>{p.formData?.cliente || ''}</RelacaoCell>
                       <RelacaoCell>{horario || ''}</RelacaoCell>
-                      <RelacaoCell>{precoTotal || ''}</RelacaoCell>
+                      <RelacaoCell>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>
+                            {precoTotal || ''}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPopupValorId(id)
+                              setPopupValorAtual(precoTotal || '')
+                            }}
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              padding: '0 2px', fontSize: '0.72rem', lineHeight: 1,
+                            }}
+                          >
+                            ✏️
+                          </button>
+                        </div>
+                      </RelacaoCell>
                       <RelacaoCell>{revendedor || ''}</RelacaoCell>
                       <RelacaoCell>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -202,10 +272,13 @@ export default function Relacao() {
                           </span>
                           <button
                             type="button"
-                            onClick={() => handleOpenPopupPagamento(id, tipoPagamento || '')}
+                            onClick={() => {
+                              setPopupPagId(id)
+                              setPopupPagValor(tipoPagamento || '')
+                            }}
                             style={{
                               background: 'none', border: 'none', cursor: 'pointer',
-                              padding: '0 2px', fontSize: '0.75rem', lineHeight: 1,
+                              padding: '0 2px', fontSize: '0.72rem', lineHeight: 1,
                             }}
                           >
                             ✏️
@@ -225,6 +298,19 @@ export default function Relacao() {
                           style={{ cursor: 'pointer', width: 16, height: 16 }}
                         />
                       </RelacaoCell>
+                      <RelacaoCell>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePedido(id)}
+                          style={{
+                            background: '#fee2e2', border: 'none', borderRadius: 6,
+                            padding: '2px 8px', fontWeight: 700, fontSize: '0.72rem',
+                            cursor: 'pointer', color: '#dc2626',
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </RelacaoCell>
                     </RelacaoRow>
                   )
                 })}
@@ -234,12 +320,21 @@ export default function Relacao() {
         </TableSection>
       </Wrapper>
 
-      {popupPedidoId !== null && (
+      {popupPagId !== null && (
         <PopupPagamento
-          pedidoId={popupPedidoId}
-          valorAtual={popupTipoPag}
-          onClose={() => setPopupPedidoId(null)}
-          onSaved={handleSaveTipoPagamento}
+          pedidoId={popupPagId}
+          valorAtual={popupPagValor}
+          onClose={() => setPopupPagId(null)}
+          onSaved={handleSavePagamento}
+        />
+      )}
+
+      {popupValorId !== null && (
+        <PopupValor
+          pedidoId={popupValorId}
+          valorAtual={popupValorAtual}
+          onClose={() => setPopupValorId(null)}
+          onSaved={handleSaveValor}
         />
       )}
     </Layout>

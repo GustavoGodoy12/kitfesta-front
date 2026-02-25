@@ -10,20 +10,15 @@ export const Wrapper = styled.form`
   color: #111827;
 `
 
-/* TOPO – FILTRO + BOTÕES */
-
 export const TopPanel = styled.section`
   background: #ffffff;
   border-radius: 10px;
   padding: 10px 12px;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
-
-  /* ✅ AJUSTE: evita estourar a largura e cortar o botão na direita */
   display: flex;
   width: 100%;
   box-sizing: border-box;
   flex-wrap: wrap;
-
   flex-direction: row;
   gap: 12px;
   align-items: stretch;
@@ -42,10 +37,7 @@ export const TopRows = styled.div`
 
 export const TopRow = styled.div`
   display: flex;
-
-  /* ✅ AJUSTE: antes era nowrap e empurrava o botão pra fora */
   flex-wrap: wrap;
-
   gap: 10px;
 
   > div {
@@ -75,7 +67,6 @@ export const FieldInput = styled.input`
   line-height: 1;
   color: #111827;
   font-weight: 700;
-
   transition: border-color 0.15s ease, background 0.15s ease;
 
   &:focus {
@@ -118,9 +109,7 @@ export const GenerateButton = styled(BaseButton)`
   white-space: nowrap;
   min-width: 140px;
 
-  &:hover {
-    background: #d1d5db;
-  }
+  &:hover { background: #d1d5db; }
 `
 
 export const PrintButton = styled(BaseButton)`
@@ -136,12 +125,8 @@ export const PrintButton = styled(BaseButton)`
   white-space: nowrap;
   min-width: 160px;
 
-  &:hover {
-    background: #ea580c;
-  }
+  &:hover { background: #ea580c; }
 `
-
-/* TABELA DE RELAÇÃO */
 
 export const TableSection = styled.section`
   flex: 1;
@@ -179,16 +164,27 @@ export const RelacaoHeaderCell = styled.th`
 `
 
 export const RelacaoHeaderNumero = styled(RelacaoHeaderCell)`
-  color: #ef4444; /* vermelho para NÚMERO, como na imagem */
+  color: #ef4444;
 `
 
 export const RelacaoTbody = styled.tbody``
 
-export const RelacaoRow = styled.tr`
+export const RelacaoRow = styled.tr<{ $entregue?: boolean; $entrega?: boolean }>`
   border-bottom: 1px solid #e5e7eb;
+  background: ${p =>
+    p.$entregue
+      ? '#fef9c3'
+      : p.$entrega
+      ? '#dbeafe'
+      : 'transparent'};
 
   &:nth-child(even) {
-    background: #f9fafb;
+    background: ${p =>
+      p.$entregue
+        ? '#fef9c3'
+        : p.$entrega
+        ? '#dbeafe'
+        : '#f9fafb'};
   }
 `
 
@@ -201,10 +197,8 @@ export const RelacaoCell = styled.td`
 `
 
 export const RelacaoCellNumero = styled(RelacaoCell)`
-  color: #16a34a; /* número do pedido em verde */
+  color: #16a34a;
 `
-
-/* ESTILOS PARA IMPRESSÃO */
 
 export const PrintStyles = createGlobalStyle`
   @media print {
@@ -213,8 +207,7 @@ export const PrintStyles = createGlobalStyle`
       margin: 8mm;
     }
 
-    html,
-    body {
+    html, body {
       margin: 0;
       padding: 0;
       background: #ffffff;
