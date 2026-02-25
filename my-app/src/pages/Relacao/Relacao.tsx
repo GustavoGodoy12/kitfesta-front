@@ -242,7 +242,7 @@ export default function Relacao() {
                       <RelacaoCell>{formatDateToBR(data) || ''}</RelacaoCell>
                       <RelacaoCellNumero>{pedidoId || id}</RelacaoCellNumero>
                       <RelacaoCell>{telefone || ''}</RelacaoCell>
-                      <RelacaoCell>{p.formData?.cliente || ''}</RelacaoCell>
+                      <RelacaoCell>{p.formData?.responsavel || ''}</RelacaoCell>
                       <RelacaoCell>{horario || ''}</RelacaoCell>
                       <RelacaoCell>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
