@@ -23,7 +23,7 @@ export type FormData = {
   enderecoEntrega: string
   precoTotal: string
   tipoPagamento?: string
-  tamanho?: string  
+  tamanho?: string
 }
 
 export type Pedido = {
@@ -34,11 +34,12 @@ export type Pedido = {
 
 export type ConsolidadoFilters = {
   data?: string
+  data_inicio?: string  // novo
+  data_fim?: string     // novo
   cliente?: string
   responsavel?: string
   retirada?: string
-  horario?: string
-  pedidoId?: string // filtro por número
+  pedidoId?: string
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4055'
@@ -62,7 +63,6 @@ function normalizePedido(data: any): Pedido {
     retirada: toStr(apiForm?.retirada),
     data: toStr(apiForm?.data),
     horario: toStr(apiForm?.horario),
-
     enderecoEntrega: toStr(apiForm?.enderecoEntrega ?? apiForm?.endereco_entrega),
     precoTotal: toStr(apiForm?.precoTotal ?? apiForm?.preco_total),
     tipoPagamento: toStr(apiForm?.tipoPagamento ?? apiForm?.tipo_pagamento),
@@ -88,22 +88,17 @@ function buildQueryString(filters: ConsolidadoFilters): string {
   const params = new URLSearchParams()
 
   if (filters.data?.trim()) params.set('data', filters.data.trim())
+  if (filters.data_inicio?.trim()) params.set('data_inicio', filters.data_inicio.trim())
+  if (filters.data_fim?.trim()) params.set('data_fim', filters.data_fim.trim())
   if (filters.cliente?.trim()) params.set('cliente', filters.cliente.trim())
   if (filters.responsavel?.trim()) params.set('responsavel', filters.responsavel.trim())
   if (filters.retirada?.trim()) params.set('retirada', filters.retirada.trim())
-  if (filters.horario?.trim()) params.set('horario', filters.horario.trim())
-
-  // ⚠️ Sua API hoje não tem filtro por pedidoId no controller.
-  // Enviamos como pedidoId; se você preferir, mude o param e implemente no backend.
   if (filters.pedidoId?.trim()) params.set('pedidoId', filters.pedidoId.trim())
 
   const qs = params.toString()
   return qs ? `?${qs}` : ''
 }
 
-/**
- * GET /pedidos com filtros via querystring
- */
 export async function fetchPedidosConsolidado(
   filters: ConsolidadoFilters,
   opts?: { signal?: AbortSignal },
@@ -123,5 +118,3 @@ export async function fetchPedidosConsolidado(
   const json = await resp.json()
   return normalizePedidosList(json)
 }
-
-
