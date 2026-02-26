@@ -157,8 +157,17 @@ function parsePrecoValue(formatted: string): number {
   return Number.isFinite(n) ? n : 0
 }
 
-function sanitizeQuantidade(raw: string): string {
+function sanitizeQuantidadeInt(raw: string): string {
   return raw.replace(/\D/g, '')
+}
+
+// Permite decimal com vírgula (ex: 3,4). Mantém no máximo 1 vírgula.
+function sanitizeQuantidadeDecimalComma(raw: string): string {
+  const cleaned = raw.replace(/[^\d,]/g, '')
+  const [intPart = '', ...rest] = cleaned.split(',')
+  const decPart = rest.join('') // junta qualquer coisa extra e trata como decimal
+  if (!rest.length) return intPart
+  return `${intPart},${decPart}`
 }
 
 function formatDateToBR(dateStr?: string): string {
@@ -256,7 +265,11 @@ export default function Cadastro() {
   }
 
   function handleItemChange(category: CategoryKey, index: number, field: keyof ItemLine, value: string) {
-    const nextValue = field === 'quantidade' ? sanitizeQuantidade(value) : value
+    const nextValue =
+      field === 'quantidade'
+        ? (category === 'bolos' ? sanitizeQuantidadeDecimalComma(value) : sanitizeQuantidadeInt(value))
+        : value
+
     setItems(prev => {
       const copy = { ...prev }
       const lines = [...copy[category]]
@@ -264,6 +277,7 @@ export default function Cadastro() {
       copy[category] = lines
       return copy
     })
+
     setFormData(prev => {
       if (prev.pedidoId) return prev
       if (nextId <= 0) return prev
@@ -325,22 +339,22 @@ export default function Cadastro() {
         : nextId || 1
 
     const payload = buildPedidoPayload(
-  {
-    responsavel: formData.responsavel,
-    cliente: formData.cliente,
-    revendedor: formData.revendedor,
-    telefone: formData.telefone,
-    retirada: formData.retirada,
-    data: formData.data,
-    horario: formData.horario,
-    enderecoEntrega: formData.enderecoEntrega,
-    precoTotal: precoFinal,       // somado
-    taxaEntrega: formData.taxaEntrega,  // separado
-    tamanho: formData.tamanho,
-  },
-  items,
-  comments,
-)
+      {
+        responsavel: formData.responsavel,
+        cliente: formData.cliente,
+        revendedor: formData.revendedor,
+        telefone: formData.telefone,
+        retirada: formData.retirada,
+        data: formData.data,
+        horario: formData.horario,
+        enderecoEntrega: formData.enderecoEntrega,
+        precoTotal: precoFinal,            // somado
+        taxaEntrega: formData.taxaEntrega, // separado
+        tamanho: formData.tamanho,
+      },
+      items,
+      comments,
+    )
 
     try {
       const resp = await createPedido(payload)
@@ -479,7 +493,6 @@ export default function Cadastro() {
                 />
               </div>
 
-              {/* mostra o total com taxa em tempo real */}
               {parsePrecoValue(formData.taxaEntrega) > 0 && (
                 <div>
                   <FieldLabel>Total com taxa</FieldLabel>
@@ -571,8 +584,8 @@ export default function Cadastro() {
                         />
                         <ItemQtyInput
                           value={line.quantidade}
-                          inputMode="numeric"
-                          pattern="[0-9]*"
+                          inputMode={isBolos ? 'decimal' : 'numeric'}
+                          pattern={isBolos ? '[0-9,]*' : '[0-9]*'}
                           onChange={e => handleItemChange(cat.key, index, 'quantidade', e.target.value)}
                         />
                         <ItemUnit
