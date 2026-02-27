@@ -32,6 +32,13 @@ type ConsolidadoRow = {
   _rawFormData: any
 }
 
+type SummaryItem = {
+  descricao: string
+  quantidadeTotal: number
+  unidade: string
+  categoria: CategoryKey
+}
+
 function sanitizeOnlyDigits(raw: string) { return raw.replace(/\D/g, '') }
 
 function formatDateToBR(dateStr?: string): string {
@@ -82,6 +89,35 @@ function applyLocalFilters(pedidos: Pedido[], filters: any): Pedido[] {
   })
 }
 
+function calculateSummary(rows: ConsolidadoRow[]): SummaryItem[] {
+  const map = new Map<string, SummaryItem>()
+  
+  for (const row of rows) {
+    const key = `${row.categoria}::${row.descricao.toLowerCase()}`
+    const qty = parseFloat(row.quantidade) || 0
+    
+    if (map.has(key)) {
+      const existing = map.get(key)!
+      existing.quantidadeTotal += qty
+    } else {
+      map.set(key, {
+        descricao: row.descricao,
+        quantidadeTotal: qty,
+        unidade: row.unidade,
+        categoria: row.categoria,
+      })
+    }
+  }
+  
+  return Array.from(map.values()).sort((a, b) => {
+    const catOrder = { doces: 1, salgados: 2, bolos: 3 }
+    if (catOrder[a.categoria] !== catOrder[b.categoria]) {
+      return catOrder[a.categoria] - catOrder[b.categoria]
+    }
+    return a.descricao.localeCompare(b.descricao)
+  })
+}
+
 export default function Consolidado() {
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
@@ -93,7 +129,15 @@ export default function Consolidado() {
   const [loading, setLoading] = useState(false)
   const [popupItemId, setPopupItemId] = useState<number | null>(null)
   const [popupInitialData, setPopupInitialData] = useState<PopupItemData | null>(null)
+  const [showSummary, setShowSummary] = useState(true)
   const abortRef = useRef<AbortController | null>(null)
+
+  const summary = calculateSummary(rows)
+  const summaryByCategory = {
+    doces: summary.filter(s => s.categoria === 'doces'),
+    salgados: summary.filter(s => s.categoria === 'salgados'),
+    bolos: summary.filter(s => s.categoria === 'bolos'),
+  }
 
   function flattenPedidos(pedidos: Pedido[]): ConsolidadoRow[] {
     const out: ConsolidadoRow[] = []
@@ -283,6 +327,183 @@ export default function Consolidado() {
             </PrintButton>
           </TopBottomRow>
         </TopPanel>
+
+        {rows.length > 0 && (
+          <div style={{
+            background: '#ffffff',
+            borderRadius: 10,
+            padding: 12,
+            boxShadow: '0 8px 18px rgba(15, 23, 42, 0.08)',
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 12,
+            }}>
+              <h3 style={{
+                margin: 0,
+                fontSize: '0.95rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                color: '#111827',
+              }}>
+                Resumo de Quantidades
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowSummary(!showSummary)}
+                style={{
+                  background: '#f3f4f6',
+                  border: '1px solid #d1d5db',
+                  borderRadius: 6,
+                  padding: '4px 12px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  color: '#111827',
+                }}
+              >
+                {showSummary ? 'Ocultar' : 'Mostrar'}
+              </button>
+            </div>
+
+            {showSummary && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: 12,
+              }}>
+                {/* DOCES */}
+                {summaryByCategory.doces.length > 0 && (
+                  <div style={{
+                    background: '#fef3c7',
+                    borderRadius: 8,
+                    padding: 10,
+                    border: '2px solid #fbbf24',
+                  }}>
+                    <h4 style={{
+                      margin: '0 0 8px 0',
+                      fontSize: '0.85rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      color: '#92400e',
+                      letterSpacing: '0.08em',
+                    }}>
+                      🍬 Doces
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {summaryByCategory.doces.map((item, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            padding: '4px 6px',
+                            background: '#fffbeb',
+                            borderRadius: 4,
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <span style={{ color: '#78350f' }}>{item.descricao}</span>
+                          <span style={{ color: '#92400e', fontWeight: 700 }}>
+                            {item.quantidadeTotal} {item.unidade}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* SALGADOS */}
+                {summaryByCategory.salgados.length > 0 && (
+                  <div style={{
+                    background: '#fee2e2',
+                    borderRadius: 8,
+                    padding: 10,
+                    border: '2px solid #f87171',
+                  }}>
+                    <h4 style={{
+                      margin: '0 0 8px 0',
+                      fontSize: '0.85rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      color: '#991b1b',
+                      letterSpacing: '0.08em',
+                    }}>
+                      🥐 Salgados
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {summaryByCategory.salgados.map((item, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            padding: '4px 6px',
+                            background: '#fef2f2',
+                            borderRadius: 4,
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <span style={{ color: '#7f1d1d' }}>{item.descricao}</span>
+                          <span style={{ color: '#991b1b', fontWeight: 700 }}>
+                            {item.quantidadeTotal} {item.unidade}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* BOLOS */}
+                {summaryByCategory.bolos.length > 0 && (
+                  <div style={{
+                    background: '#ddd6fe',
+                    borderRadius: 8,
+                    padding: 10,
+                    border: '2px solid #a78bfa',
+                  }}>
+                    <h4 style={{
+                      margin: '0 0 8px 0',
+                      fontSize: '0.85rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      color: '#5b21b6',
+                      letterSpacing: '0.08em',
+                    }}>
+                      🎂 Bolos
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {summaryByCategory.bolos.map((item, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            padding: '4px 6px',
+                            background: '#f5f3ff',
+                            borderRadius: 4,
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <span style={{ color: '#4c1d95' }}>{item.descricao}</span>
+                          <span style={{ color: '#5b21b6', fontWeight: 700 }}>
+                            {item.quantidadeTotal} {item.unidade}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <TableSection>
           <TableWrapper>
