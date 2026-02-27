@@ -185,6 +185,37 @@ export default function Relacao() {
             </TopRow>
           </TopRows>
           <TopBottomRow>
+            {pedidos.length > 0 && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 16px',
+                background: '#f97316',
+                borderRadius: 999,
+                marginRight: 'auto',
+              }}>
+                <span style={{
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: '#111827',
+                }}>
+                  Total de Pedidos:
+                </span>
+                <span style={{
+                  fontSize: '1.1rem',
+                  fontWeight: 700,
+                  color: '#111827',
+                  background: '#ffffff',
+                  padding: '2px 12px',
+                  borderRadius: 999,
+                }}>
+                  {pedidos.length}
+                </span>
+              </div>
+            )}
             <GenerateButton type="button" onClick={gerarRelacao} disabled={loading}>
               {loading ? 'Gerando...' : 'Gerar relação'}
             </GenerateButton>
