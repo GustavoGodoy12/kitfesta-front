@@ -9,6 +9,7 @@ import {
 } from './Relacao.styled'
 import PopupPagamento from './PopupPagamento/PopupPagamento'
 import PopupValor from './PopupValor/PopupValor'
+import PopupEditarPedido from './PopupEditarPedido/PopupEditarPedido'
 import { fetchPedidosByData, type Pedido } from '../../services/relacao'
 
 const STORAGE_KEY = 'sisteminha-pedidos'
@@ -65,6 +66,9 @@ export default function Relacao() {
   const [popupValorId, setPopupValorId] = useState<number | null>(null)
   const [popupValorAtual, setPopupValorAtual] = useState('')
 
+  // popup editar pedido completo
+  const [popupEditarPedido, setPopupEditarPedido] = useState<Pedido | null>(null)
+
   const abortRef = useRef<AbortController | null>(null)
 
   async function gerarRelacao() {
@@ -76,7 +80,6 @@ export default function Relacao() {
     try {
       const apiPedidos = await fetchPedidosByData(dataFiltro, { signal: controller.signal })
 
-      // filtro local por número do pedido
       const filtrados = numeroPedidoFiltro.trim()
         ? apiPedidos.filter(p =>
             String(p.formData?.pedidoId ?? p.id) === numeroPedidoFiltro.trim(),
@@ -140,6 +143,16 @@ export default function Relacao() {
       prev.map(p =>
         p.id === pedidoId
           ? { ...p, formData: { ...p.formData, precoTotal: valor } }
+          : p,
+      ),
+    )
+  }
+
+  function handleSaveEdicao(pedidoId: number, updatedFormData: Record<string, string>) {
+    setPedidos(prev =>
+      prev.map(p =>
+        p.id === pedidoId
+          ? { ...p, formData: { ...p.formData, ...updatedFormData } }
           : p,
       ),
     )
@@ -330,17 +343,30 @@ export default function Relacao() {
                         />
                       </RelacaoCell>
                       <RelacaoCell>
-                        <button
-                          type="button"
-                          onClick={() => handleDeletePedido(id)}
-                          style={{
-                            background: '#fee2e2', border: 'none', borderRadius: 6,
-                            padding: '2px 8px', fontWeight: 700, fontSize: '0.72rem',
-                            cursor: 'pointer', color: '#dc2626',
-                          }}
-                        >
-                          🗑️
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <button
+                            type="button"
+                            onClick={() => setPopupEditarPedido(p)}
+                            style={{
+                              background: '#dbeafe', border: 'none', borderRadius: 6,
+                              padding: '2px 8px', fontWeight: 700, fontSize: '0.72rem',
+                              cursor: 'pointer', color: '#1d4ed8',
+                            }}
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePedido(id)}
+                            style={{
+                              background: '#fee2e2', border: 'none', borderRadius: 6,
+                              padding: '2px 8px', fontWeight: 700, fontSize: '0.72rem',
+                              cursor: 'pointer', color: '#dc2626',
+                            }}
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </RelacaoCell>
                     </RelacaoRow>
                   )
@@ -366,6 +392,14 @@ export default function Relacao() {
           valorAtual={popupValorAtual}
           onClose={() => setPopupValorId(null)}
           onSaved={handleSaveValor}
+        />
+      )}
+
+      {popupEditarPedido !== null && (
+        <PopupEditarPedido
+          pedido={popupEditarPedido}
+          onClose={() => setPopupEditarPedido(null)}
+          onSaved={handleSaveEdicao}
         />
       )}
     </Layout>

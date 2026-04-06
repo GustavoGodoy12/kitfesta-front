@@ -109,7 +109,7 @@ const makeInitialItems = (): ItemsByCategory => ({
 const makeInitialComments = (): CategoryComments => ({
   doces: '',
   salgados: '',
-  bolos: '',
+  bolos: '',  
 })
 
 const DOCES_OPCOES = [
