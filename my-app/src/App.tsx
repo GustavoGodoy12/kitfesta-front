@@ -2,7 +2,7 @@ import './index.css'
 import './App.css'
 
 import Sidebar from './components/Sidebar/Sidebar'
-import { Routes, Route, useLocation, Navigate } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import Cadastro from './pages/Cadastro/Cadastro'
 import Imprimir from './pages/Imprimir/Imprimir'
 import Relacao from './pages/Relacao/Relacao'
