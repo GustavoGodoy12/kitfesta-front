@@ -22,7 +22,7 @@ export default function App() {
       <div className="shell">
         <main className="content">
           <Routes>
-            <Route path="/" element={<Navigate to="/cadastro" replace />} />
+            
             <Route path="/relatorios/login" element={<Login />} />
             <Route path="/cadastro" element={<Cadastro />} />
             <Route path="/imprimir" element={<Imprimir />} />
